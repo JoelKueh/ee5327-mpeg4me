@@ -1,21 +1,5 @@
 # MPEG4 Motion Estimator Literature Survey
 
-This document contains the findings from reviewing various papers related to MPEG4 motion estimation techniques.
-
-## Papers Reviewed
-
-### 1. ds_impl.pdf
-### 2. ds.pdf
-### 3. mostion_estimarot_hardware.pdf
-### 4. epzs.pdf
-### 5. sad_reuse.pdf
-### 6. sad_reuse2.pdf
-### 7. ultra_low_power.pdf
-### 8. motion_estimator.pdf
-### 9. sad.pdf
-
-Each section will contain the key findings, architecture details, tradeoffs, and lessons learned from the respective papers.
-
 ## 1. Introduction
 
 This document provides a comprehensive survey of motion estimation algorithms and architectures for MPEG-4 and H.264 video coding standards. The survey encompasses various techniques including search algorithms, hardware implementations, and optimization strategies based on the PDF documents examined.
