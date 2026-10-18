@@ -1,1 +1,0 @@
-// sad_comparator.sv

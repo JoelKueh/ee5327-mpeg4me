@@ -4,6 +4,9 @@
 //
 
 package sad_pkg;
+
+    parameter int BLOCK_SIZE = 16;
+    parameter int WINDOW_SIZE = 2 * BLOCK_SIZE;
     
     parameter int PEL_W = 8;
 

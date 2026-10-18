@@ -4,10 +4,11 @@
 //
 
 module sad_pe (
-    input wire clk,
-    input  rst_n,
-    input  [PEL_W-1:0] cf[4],
-    input  [PEL_W-1:0] rf[4],
+    input  logic clk,
+    input  logic clear,
+    input  logic stall,
+    input  logic [PEL_W-1:0] cf[4],
+    input  logic [PEL_W-1:0] rf[4],
     output logic [PEL_W-1:0] result
 );
 
@@ -24,11 +25,17 @@ module sad_pe (
         sad_l1[0] = sad_l0[0] + sad_l0[1];
         sad_l1[1] = sad_l0[2] + sad_l0[3];
 
-        acc_d = sad_l1[0] + sad_l1[1];
+        if (stall) begin
+            acc_d = acc_q;
+        end else if (clear) begin
+            acc_d = '0;
+        end else begin
+            acc_d = sad_l1[0] + sad_l1[1];
+        end
     end
 
-    always_ff @(posedge clk or negedge rst_n) begin
-        if (!rst_n) begin
+    always_ff @(posedge clk) begin
+        if (clear) begin
             acc_q = '0;
         end else begin
             acc_q = acc_d;
