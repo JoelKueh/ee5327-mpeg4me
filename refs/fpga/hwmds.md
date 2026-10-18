@@ -19,6 +19,17 @@
 6. Control Unit
 7. Address Generation Unit
 
+## Updates
+
+- 16 PEL per cycle 
+
+- You have a row of 16 PEs
+    - Currently, four PEs cooperate to compute 4x4 SAD in one cycle.
+    - Currently the processing speed is 16 pel per cycle (16 cycle to load the whole block).
+    - We should process at 4x that (64 pel per cycle).
+    - Have each PE compute a single 4x4 SAD.
+- Then speed up the recombination phase to keep in time with the computation phase.
+
 ### Search Window Memory Banks
 
 - Two banks in a swap buffer configuration (load bank 1 while computing on bank 2)
