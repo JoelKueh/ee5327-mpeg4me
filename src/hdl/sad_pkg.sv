@@ -5,8 +5,12 @@
 
 package sad_pkg;
 
+    parameter int FRAME_WIDTH = 1280;
+    parameter int FRAME_HEIGHT = 720;
+
     parameter int BLOCK_SIZE = 16;
     parameter int WINDOW_SIZE = 2 * BLOCK_SIZE;
+    parameter int PEL_OFFSET_W = $clog2(WINDOW_SIZE);
     
     parameter int PEL_W = 8;
 
