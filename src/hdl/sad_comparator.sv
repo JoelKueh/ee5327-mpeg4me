@@ -42,7 +42,7 @@ module sad_comparator#(
 
     always_ff @(posedge clk) begin
         if (clear) begin
-
+            
         end else begin
 
         end
