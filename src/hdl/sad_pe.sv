@@ -4,23 +4,25 @@
 //
 
 module sad_pe (
-    input  logic clk,
-    input  logic clear,
-    input  logic stall,
-    input  logic [PEL_W-1:0] cf[4],
-    input  logic [PEL_W-1:0] rf[4],
-    output logic [PEL_W-1:0] result
+    input  logic clk,                 // The primary clock
+    input  logic clear,               // Synchronous, pipelined accumulator clear signal
+    input  logic stall,               // Pipelined stall signal
+    input  logic [3:0][PEL_W-1:0] rb, // Reference block input
+    input  logic [3:0][PEL_W-1:0] cb, // Current block input
+    output logic [SAD_4X4_W-1:0] sad  // Computed SAD output
 );
+
+    import sad_pkg::*;
 
     logic [PEL_W-1:0]     sad_l0[4];
     logic [SAD_2X1_W-1:0] sad_l1[2];
     logic [SAD_4X4_W-1:0] acc_q, acc_d;
 
     always_comb begin
-        sad_l0[0] = rf[0] > cf[0] ? (rf[0] - cf[0]) : (cf[0] - rf[0]);
-        sad_l0[1] = rf[1] > cf[1] ? (rf[1] - cf[1]) : (cf[1] - rf[1]);
-        sad_l0[2] = rf[2] > cf[2] ? (rf[2] - cf[2]) : (cf[2] - rf[2]);
-        sad_l0[3] = rf[3] > cf[3] ? (rf[3] - cf[3]) : (cf[3] - rf[3]);
+        sad_l0[0] = rb[0] > cb[0] ? (rb[0] - cb[0]) : (cb[0] - rb[0]);
+        sad_l0[1] = rb[1] > cb[1] ? (rb[1] - cb[1]) : (cb[1] - rb[1]);
+        sad_l0[2] = rb[2] > cb[2] ? (rb[2] - cb[2]) : (cb[2] - rb[2]);
+        sad_l0[3] = rb[3] > cb[3] ? (rb[3] - cb[3]) : (cb[3] - rb[3]);
 
         sad_l1[0] = sad_l0[0] + sad_l0[1];
         sad_l1[1] = sad_l0[2] + sad_l0[3];
@@ -30,20 +32,20 @@ module sad_pe (
         end else if (clear) begin
             acc_d = '0;
         end else begin
-            acc_d = sad_l1[0] + sad_l1[1];
+            acc_d = acc_q + {3'b000, sad_l1[0]} + {3'b000, sad_l1[1]};
         end
     end
 
     always_ff @(posedge clk) begin
         if (clear) begin
-            acc_q = '0;
+            acc_q <= '0;
         end else begin
-            acc_q = acc_d;
+            acc_q <= acc_d;
         end
     end
 
     always_comb begin
-        result = acc_q;
+        sad = acc_q;
     end
 
 endmodule

@@ -10,13 +10,12 @@ package sad_pkg;
 
     parameter int BLOCK_SIZE = 16;
     parameter int WINDOW_SIZE = 2 * BLOCK_SIZE;
-    parameter int PEL_OFFSET_W = $clog2(WINDOW_SIZE);
+    parameter int SW_IDX_W = $clog2(WINDOW_SIZE);
     
     parameter int PEL_W = 8;
 
     parameter int SAD_2X1_W = PEL_W + $clog2(2 * 1);
     parameter int SAD_4X1_W = PEL_W + $clog2(4 * 2);
-    parameter int SAD_4X2_W = PEL_W + $clog2(4 * 4);
     parameter int SAD_4X2_W = PEL_W + $clog2(4 * 4);
     parameter int SAD_4X4_W = PEL_W + $clog2(4 * 4);
     parameter int SAD_8X4_W = PEL_W + $clog2(8 * 4);

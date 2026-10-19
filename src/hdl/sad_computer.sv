@@ -8,28 +8,34 @@
 //
 
 module sad_computer(
-    input  logic clk,                                        // The primary clock
-    input  logic rst_n,                                      // Asynchronous negative reset
-    input  logic stall,                                      // Global stall signal
-    input  logic [PEL_W-1:0] rf[WINDOW_SIZE+7],              // Reference frame input
-    input  logic [PEL_W-1:0] cf[4][4],                       // Candidate frame input
+    input  logic clk,                                     // The primary clock
+    input  logic clear,                                   // Pipelined clear signal
+    input  logic stall,                                   // Pipelined stall signal
+    input  logic [WINDOW_SIZE+6:0][PEL_W-1:0] rf,         // Reference frame input
+    input  logic [3:0][PEL_W-1:0] cf[4],                  // Candidate frame input
 
-    output logic [SAD_8X4_W-1:0] sad_8x4[2][WINDOW_SIZE],    // Buffered output 8x4 row results
-    output logic [PEL_OFFSET_W-1:0] tag_8x4[2][WINDOW_SIZE], // Tag values for 8x4 row reults
-    output logic [SAD_8X8_W-1:0] sad_8x8[WINDOW_SIZE],       // Buffered output 8x8 row result
-    output logic [PEL_OFFSET_W-1:0] tag_8x8[2][WINDOW_SIZE], // Tag values for 8x8 row reults
+    output logic [SAD_8X4_W-1:0] sad_8x4[WINDOW_SIZE][2], // Buffered output 8x4 row results
+    output logic [SW_IDX_W-1:0] tag_8x4[WINDOW_SIZE][2],  // Tag values for 8x4 row reults
+    output logic [SAD_8X8_W-1:0] sad_8x8[WINDOW_SIZE],    // Buffered output 8x8 row result
+    output logic [SW_IDX_W-1:0] tag_8x8[WINDOW_SIZE][2]   // Tag values for 8x8 row reults
 );
 
-    logic [SAD_4X4_W-1:0] results_8x4_q[2][WINDOW_SIZE], results_8x8_d[4][WINDOW_SIZE];
-    logic [SAD_4X4_W-1:0] results_8x8_q[WINDOW_SIZE], results_8x8_d[WINDOW_SIZE]
+    import sad_pkg::*;
+
+    logic [SAD_8X4_W-1:0] results_8x4_q[2][WINDOW_SIZE], results_8x4_d[4][WINDOW_SIZE];
+    logic [SAD_8X8_W-1:0] results_8x8_q[WINDOW_SIZE], results_8x8_d[WINDOW_SIZE];
+
+    logic [SAD_4X4_W-1:0] results_4x4;
+    logic load;
 
     // Instantiate 4 4x4_SAD PE arrays arranged as a full 8x8 block.
-    genvar int i;
+    genvar i;
     generate
         for (i = 0; i < 4; i++) begin : computer_pe
-            sad_pe_array pe_array_ul(
+            sad_pe_array pe_array(
                 .clk(clk),
-                .rst_n(rst_n),
+                .clear(clear),
+                .load(load),
                 .stall(stall),
                 .rf(rf[i:WINDOW_SIZE+2+i]),
                 .cf(cf[i]),
@@ -43,13 +49,13 @@ module sad_computer(
         for (int i = 0; i < WINDOW_SIZE; i++) begin
             results_8x4_d[0][i] = results_4x4[0][i] + results_4x4[2][i];
             results_8x4_d[1][i] = results_4x4[1][i] + results_4x4[3][i];
-            results_8x8_d[2][i] = results_8x4[0][i] + results_8x4[1][i];
+            results_8x8_d[2][i] = results_8x4_d[0][i] + results_8x4_d[1][i];
         end
     end
 
     // Buffer the output of the 4x4 PE arrays.
-    always_ff @(posedge clk or negedge rst_n) begin
-        if (!rst_n) begin
+    always_ff @(posedge clk) begin
+        if (clear) begin
             results_8x4_q <= '0;
             results_8x8_q <= '0;
         end else begin
@@ -60,8 +66,8 @@ module sad_computer(
 
     // Assign the 8x4 and 8x8 output.
     always_comb begin
-        results_8x4 = results_8x4_q;
-        results_8x8 = results_8x8_q;
+        sad_8x4 = sad_8x4_q;
+        sad_8x8 = sad_8x8_q;
     end
 
 endmodule
