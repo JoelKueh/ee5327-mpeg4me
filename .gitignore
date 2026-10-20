@@ -1,2 +1,5 @@
 .qwen
 .nvim
+build/
+synth/filelist.f
+*.vcd

@@ -1,36 +1,155 @@
-# Configuration
-VERILATOR = verilator
-TOP_MODULE = top
-V_SOURCES = top.sv other_module.sv
-CPP_SOURCES = sim_main.cpp
-BUILD_DIR = obj_dir
-EXECUTABLE = $(BUILD_DIR)/V$(TOP_MODULE)
+# =============================================================================
+# ee5327-mpeg4me — build system
+#
+# Full search motion estimator (architecture: refs/arch_asic/key.pdf).
+#
+# Simulation (local, Verilator):
+#   make            build the model (verilator --cc)
+#   make lint       lint-only pass (-Wall), no C++ build
+#   make run        build + run simulation (requires a C++ testbench)
+#   make wave       run + open waveforms in GTKWave
+#   make clean      remove build artifacts
+#   make filelist   generate synth/filelist.f (ordered source list)
+#   make synth      (reserved) Design Compiler flow on remote host
+#   make help       print this help
+#
+# Override from the command line, e.g.:
+#   make TOP_MODULE=fs_computer
+#   make TRACE=1
+# =============================================================================
 
-# Flags
-VERILATOR_FLAGS = --cc --exe --build -j 0 \
-                  -Wall \
-                  --trace \
-                  --assert \
-                  --top-module $(TOP_MODULE)
+# ----- Configuration ---------------------------------------------------------
 
-# Default target
-all: run
+# Top module to build. Switch to 'top' once src/hdl/top.sv is instantiated.
+TOP_MODULE ?= fs_computer
 
-# Build the simulation executable
-$(EXECUTABLE): $(V_SOURCES) $(CPP_SOURCES)
-	$(VERILATOR) $(VERILATOR_FLAGS) $(CPP_SOURCES) $(V_SOURCES)
+VERILATOR  ?= verilator
+BUILD_DIR  ?= build
 
-# Run the simulation
-run: $(EXECUTABLE)
-	@echo "Running simulation..."
-	@$(EXECUTABLE)
+# Verilator's generated makefile — the primary build artifact.
+VERI_MK    := $(BUILD_DIR)/V$(TOP_MODULE).mk
+# Linked simulation executable — only exists once CPP_SOURCES is non-empty.
+SIM_EXEC   := $(BUILD_DIR)/V$(TOP_MODULE)
 
-# View waveforms with GTKWave (if generated)
+# ----- Sources -----------------------------------------------------------------
+# Must stay in elaboration order: packages, then interfaces, then modules.
+# Add new files here; the same order is used by the synthesis file list.
+
+V_SOURCES := \
+    src/hdl/me_pkg.sv \
+    src/hdl/sram_if.sv \
+    src/hdl/fs/fs_pe.sv \
+    src/hdl/fs/fs_pe_array.sv \
+    src/hdl/fs/fs_computer.sv
+
+# Pending — add back once buildable:
+#   src/hdl/fs/fs_combiner.sv   - verilator 5.053 rejects parameterized
+#                                 interface ports (sram_if#(...).mstr)
+#   src/hdl/ds/sad_result_if.sv - references SAD_4X8_W / SAD_4X16_W /
+#                                 sad_bitwidths_t, not yet in me_pkg
+#   src/hdl/top.sv              - still empty
+
+# C++ testbench sources. When non-empty the build links a full simulation
+# executable (verilator --exe) and 'make run' becomes available.
+CPP_SOURCES :=
+
+# ----- Flags --------------------------------------------------------------------
+
+# -Wno-UNUSEDPARAM: me_pkg defines the full SAD bitwidth table for the
+# complete design, so parameters stay unused until the upper modules land.
+WARN_FLAGS := -Wall -Wno-UNUSEDPARAM
+
+LINT_FLAGS := --lint-only --top-module $(TOP_MODULE) $(WARN_FLAGS)
+
+BUILD_FLAGS := --cc --build -j 0 --top-module $(TOP_MODULE) \
+               --Mdir $(BUILD_DIR) $(WARN_FLAGS)
+
+# VCD tracing (requires a testbench that enables it): make TRACE=1
+TRACE ?= 0
+ifeq ($(TRACE),1)
+BUILD_FLAGS += --trace
+endif
+
+# Link the simulation executable only when a testbench exists.
+ifeq ($(strip $(CPP_SOURCES)),)
+else
+BUILD_FLAGS += --exe
+endif
+
+# Arguments passed to the simulation executable: make SIM_ARGS="..."
+SIM_ARGS ?=
+
+# ----- Simulation targets ---------------------------------------------------------
+
+.DEFAULT_GOAL := all
+all: build
+
+lint:
+	$(VERILATOR) $(LINT_FLAGS) $(V_SOURCES) $(CPP_SOURCES)
+
+build: $(VERI_MK)
+
+$(VERI_MK): $(V_SOURCES) $(CPP_SOURCES)
+	$(VERILATOR) $(BUILD_FLAGS) $(CPP_SOURCES) $(V_SOURCES)
+
+run: build
+	@if [ -x "$(SIM_EXEC)" ]; then \
+		"$(SIM_EXEC)" $(SIM_ARGS); \
+	else \
+		echo "No simulation executable: CPP_SOURCES is empty (no testbench yet)." >&2; \
+		exit 1; \
+	fi
+
 wave: run
-	gtkwave waveform.vcd &
+	gtkwave $(BUILD_DIR)/*.vcd &
 
-# Clean build artifacts
 clean:
-	rm -rf $(BUILD_DIR) *.vcd *.log
+	rm -rf $(BUILD_DIR) $(FILELIST) *.vcd
 
-.PHONY: all run wave clean
+# ----- Synthesis (Synopsys Design Compiler, remote) ------------------------------
+#
+# DC runs on the 'vlsi' host. scripts/farm_runner.sh documents the sync
+# convention: rclone the tree up, ssh to run, rclone results back down.
+#
+# To enable the flow later:
+#   1. Write the DC script: synth/$(TOP_MODULE).do
+#        (analyze -sv -f $(FILELIST), elaborate, compile, write)
+#   2. Fill in DC_DIR below (remote checkout directory).
+#   3. Replace the 'synth' recipe with something like:
+#        rclone copy -cu . vlsi:$(DC_DIR)
+#        ssh $(DC_HOST) "cd $(DC_DIR) && dc_shell -f $(DC_SCRIPT)"
+#        rclone copy -cu vlsi:$(DC_DIR)/output output
+
+DC_HOST   ?= vlsi
+DC_DIR    ?=                # remote directory holding this checkout
+DC_SCRIPT ?= synth/$(TOP_MODULE).do
+FILELIST  := synth/filelist.f
+
+# Ordered source list; DC requires packages/interfaces to be analyzed before
+# the modules that use them, so this mirrors the order above.
+filelist: $(FILELIST)
+
+$(FILELIST): $(V_SOURCES)
+	@mkdir -p $(dir $@)
+	@echo '# generated by make filelist - do not edit' > $@
+	@for f in $(V_SOURCES); do echo $$f >> $@; done
+
+synth: filelist
+	@echo "DC synthesis flow not implemented yet - see the SYNTHESIS section header." >&2
+	@exit 1
+
+# ----- Help -----------------------------------------------------------------------
+
+help:
+	@echo "Targets:"
+	@echo "  all (default)  build the model with Verilator"
+	@echo "  lint           lint-only pass (-Wall), no C++ build"
+	@echo "  run            build + run simulation (needs a C++ testbench)"
+	@echo "  wave           run + open waveforms in GTKWave"
+	@echo "  clean          remove build artifacts"
+	@echo "  filelist       generate $(FILELIST) for synthesis"
+	@echo "  synth          (reserved) Design Compiler flow on $(DC_HOST)"
+	@echo ""
+	@echo "Variables: TOP_MODULE=$(TOP_MODULE)  TRACE=$(TRACE)  SIM_ARGS='$(SIM_ARGS)'"
+
+.PHONY: all lint build run wave clean filelist synth help
