@@ -9,8 +9,8 @@ module sad_pe_array(
     input  logic clear,                           // Synchonous, pipelined clear signal
     input  logic stall,                           // Pipelined stall signal
     input  logic load,                            // Load cb_q[0] from input?
-
     input  logic [1:0] row_idx_mod,               // Modulus of the row being served in rb
+
     input  logic [WINDOW_SIZE+2:0][PEL_W-1:0] rb, // Reference block input
     input  logic [3:0][PEL_W-1:0] cb,             // Current block input
 
@@ -29,14 +29,14 @@ module sad_pe_array(
     genvar row, col;
     generate
         for (row = 0; row < 4; row++) begin : pe_array_row
-            for (col = 0; col < WINDOW_SIZE - 3; col++) begin : pe_array_col
+            for (col = 0; col < WINDOW_SIZE; col++) begin : pe_array_col
                 sad_pe pe(
                     .clk(clk),
                     .clear(clear_row[row]),
                     .stall(stall),
-                    .rb(rb[col:col+3]),
+                    .rb(rb[col+3:col]),
                     .cb(cb),
-                    .sad(pe_sad[row])
+                    .sad(pe_sad[row][col])
                 );
             end
         end
@@ -57,16 +57,19 @@ module sad_pe_array(
             for (int i = 0; i < 4; i++) cb_d[(i + 1) % 4] = cb_q[i];
             if (load) cb_d[0] = cb;
         end
+
+        // Mux the row output into the sad register.
+        sad_d = pe_sad[row_idx_mod];
     end
 
     // Buffer the result output.
     always_ff @(posedge clk) begin
         if (clear) begin
-            cb_q <= '0;
-            sad_q <= '0;
+            for (int i = 0; i < 4; i++) cb_q[i] <= '0;
+            for (int i = 0; i < 4; i++) sad_q[i] <= '0;
         end else begin
             cb_q <= cb_d;
-            sad_q <= sad_q;
+            sad_q <= sad_d;
         end
     end
 

@@ -8,63 +8,104 @@
 //
 
 module sad_computer(
-    input  logic clk,                                     // The primary clock
-    input  logic clear,                                   // Pipelined clear signal
-    input  logic stall,                                   // Pipelined stall signal
-    input  logic [WINDOW_SIZE+6:0][PEL_W-1:0] rf,         // Reference frame input
-    input  logic [3:0][PEL_W-1:0] cf[4],                  // Candidate frame input
+    input  logic clk,                             // The primary clock
+    input  logic clear,                           // Pipelined clear signal
+    input  logic stall,                           // Pipelined stall signal
 
-    output logic [SAD_8X4_W-1:0] sad_8x4[WINDOW_SIZE][2], // Buffered output 8x4 row results
-    output logic [SW_IDX_W-1:0] tag_8x4[WINDOW_SIZE][2],  // Tag values for 8x4 row reults
-    output logic [SAD_8X8_W-1:0] sad_8x8[WINDOW_SIZE],    // Buffered output 8x8 row result
-    output logic [SW_IDX_W-1:0] tag_8x8[WINDOW_SIZE][2]   // Tag values for 8x8 row reults
+    input  logic [3:0][PEL_W-1:0] cb[4],          // Candidate block input
+    input  logic [WINDOW_SIZE+6:0][PEL_W-1:0] rb, // Reference block input stream
+    input  logic [SW_IDX_W-1:0] rb_row_idx,       // Reference block search window offset
+
+    output logic [SAD_8X4_W-1:0] sad_8x4[2][WINDOW_SIZE], // Buffered output 8x4 row resultss
+    output logic [SAD_8X8_W-1:0] sad_8x8[WINDOW_SIZE]     // Buffered output 8x8 row results
 );
 
     import sad_pkg::*;
 
-    logic [SAD_8X4_W-1:0] results_8x4_q[2][WINDOW_SIZE], results_8x4_d[4][WINDOW_SIZE];
-    logic [SAD_8X8_W-1:0] results_8x8_q[WINDOW_SIZE], results_8x8_d[WINDOW_SIZE];
-
-    logic [SAD_4X4_W-1:0] results_4x4;
-    logic load;
+    logic [WINDOW_SIZE+6:0][PEL_W-1:0] rb_sr_q[4], rb_sr_d[4];
+    logic [SAD_4X4_W-1:0] sad_4x4[4][WINDOW_SIZE];
+    logic [SAD_8X4_W-1:0] sad_8x4_q[2][WINDOW_SIZE], sad_8x4_d[2][WINDOW_SIZE];
+    logic [SAD_8X8_W-1:0] sad_8x8_q[WINDOW_SIZE], sad_8x8_d[WINDOW_SIZE];
 
     // Instantiate 4 4x4_SAD PE arrays arranged as a full 8x8 block.
-    genvar i;
-    generate
-        for (i = 0; i < 4; i++) begin : computer_pe
-            sad_pe_array pe_array(
-                .clk(clk),
-                .clear(clear),
-                .load(load),
-                .stall(stall),
-                .rf(rf[i:WINDOW_SIZE+2+i]),
-                .cf(cf[i]),
-                .results(results_4x4[i])
-            );
-        end
-    endgenerate
+    sad_pe_array pe_array_ul(
+        .clk(clk),
+        .clear(clear),
+        .stall(stall),
+        .load(rb_row_idx < 4),
+        .row_idx_mod(rb_row_idx[1:0]),
+        .rb(rb[WINDOW_SIZE+2:0]),
+        .cb(cb[0]),
+        .sad(sad_4x4[0])
+    );
 
-    // Compute the 8x4 and 8x8 results in one cycle.
+    sad_pe_array pe_array_ur(
+        .clk(clk),
+        .clear(clear),
+        .stall(stall),
+        .load(rb_row_idx < 4),
+        .row_idx_mod(rb_row_idx[1:0]),
+        .rb(rb[WINDOW_SIZE+6:4]),
+        .cb(cb[1]),
+        .sad(sad_4x4[1])
+    );
+
+    sad_pe_array pe_array_dl(
+        .clk(clk),
+        .clear(clear),
+        .stall(stall),
+        .load(rb_row_idx < 8),
+        .row_idx_mod(rb_row_idx[1:0]),
+        .rb(rb_sr_q[3][WINDOW_SIZE+2:0]),
+        .cb(cb[2]),
+        .sad(sad_4x4[2])
+    );
+
+    sad_pe_array pe_array_dr(
+        .clk(clk),
+        .clear(clear),
+        .stall(stall),
+        .load(rb_row_idx < 8),
+        .row_idx_mod(rb_row_idx[1:0]),
+        .rb(rb_sr_q[3][WINDOW_SIZE+6:4]),
+        .cb(cb[3]),
+        .sad(sad_4x4[3])
+    );
+
     always_comb begin
-        for (int i = 0; i < WINDOW_SIZE; i++) begin
-            results_8x4_d[0][i] = results_4x4[0][i] + results_4x4[2][i];
-            results_8x4_d[1][i] = results_4x4[1][i] + results_4x4[3][i];
-            results_8x8_d[2][i] = results_8x4_d[0][i] + results_8x4_d[1][i];
+        rb_sr_d = rb_sr_q;
+
+        // Compute the 8x4 and 8x8 results in one cycle
+        for (int row = 0; row < WINDOW_SIZE; row++) begin
+            sad_8x4_d[0][row] = sad_4x4[0][row] + sad_4x4[2][row];
+            sad_8x4_d[1][row] = sad_4x4[1][row] + sad_4x4[3][row];
+            sad_8x8_d[row] = sad_8x4_d[0][row] + sad_8x4_d[1][row];
+        end
+
+        // Buffer the reference pixel data for the dl and dr PE arrays
+        if (!stall) begin
+            rb_sr_d[0] = rb;
+            rb_sr_d[1] = rb_sr_q[0];
+            rb_sr_d[2] = rb_sr_q[1];
+            rb_sr_d[3] = rb_sr_q[2];
         end
     end
 
-    // Buffer the output of the 4x4 PE arrays.
+    // Buffer the output of the 4x4 PE arrays
     always_ff @(posedge clk) begin
         if (clear) begin
-            results_8x4_q <= '0;
-            results_8x8_q <= '0;
+            for (int i = 0; i < WINDOW_SIZE; i++) sad_8x4_q[0][i] <= '0;
+            for (int i = 0; i < WINDOW_SIZE; i++) sad_8x4_q[1][i] <= '0;
+            for (int i = 0; i < WINDOW_SIZE; i++) sad_8x8_q[i] <= '0;
+            for (int i = 0; i < 4; i++) rb_sr_q[i] <= '0;
         end else begin
-            results_8x4_q <= results_8x4_d;
-            results_8x8_q <= results_8x8_d;
+            sad_8x4_q <= sad_8x4_d;
+            sad_8x8_q <= sad_8x8_d;
+            rb_sr_q <= rb_sr_d;
         end
     end
 
-    // Assign the 8x4 and 8x8 output.
+    // Assign the 8x4 and 8x8 output
     always_comb begin
         sad_8x4 = sad_8x4_q;
         sad_8x8 = sad_8x8_q;

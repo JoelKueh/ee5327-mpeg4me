@@ -18,7 +18,7 @@ module sad_comparator#(
     input  logic stall,
     input  logic [SAD_RESULT_W-1:0] sads[WINDOW_SIZE],
     output logic [PEL_ROW_W-1:0] 
-    output logic [SAD_RESULT_W-1:0] result
+    output logic [SAD_RESULT_W-1:0] result,
 );
 
     logic [SAD_RESULT_W-1:0] l4[16];
