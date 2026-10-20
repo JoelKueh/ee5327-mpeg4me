@@ -1,10 +1,10 @@
-// sad_pe_array.sv
+// fs_pe_array.sv
 //
 // Array of processors for SAD computation. Computes a row of 4x4 SADs every
 // cycle after fringe after a 3-cycle warm up.
 //
 
-module sad_pe_array(
+module fs_pe_array(
     input  logic clk,                             // The primary clock
     input  logic clear,                           // Synchonous, pipelined clear signal
     input  logic stall,                           // Pipelined stall signal
@@ -17,7 +17,7 @@ module sad_pe_array(
     output logic [SAD_4X4_W-1:0] sad[WINDOW_SIZE] // Buffered output SAD computations
 );
 
-    import sad_pkg::*;
+    import me_pkg::*;
 
     logic [SAD_4X4_W-1:0] pe_sad[4][WINDOW_SIZE]; // Results from each PE row
     logic clear_row[4];                           // Clear signal for each PE row
@@ -30,7 +30,7 @@ module sad_pe_array(
     generate
         for (row = 0; row < 4; row++) begin : pe_array_row
             for (col = 0; col < WINDOW_SIZE; col++) begin : pe_array_col
-                sad_pe pe(
+                fs_pe pe(
                     .clk(clk),
                     .clear(clear_row[row]),
                     .stall(stall),

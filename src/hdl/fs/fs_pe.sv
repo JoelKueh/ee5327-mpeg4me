@@ -1,9 +1,9 @@
-// sad_pe.sv
+// fs_pe.sv
 //
 // Computes a 4x4 SAD over four cycles (streamed one row of data at a time).
 //
 
-module sad_pe (
+module fs_pe (
     input  logic clk,                 // The primary clock
     input  logic clear,               // Synchronous, pipelined accumulator clear signal
     input  logic stall,               // Pipelined stall signal
@@ -12,7 +12,7 @@ module sad_pe (
     output logic [SAD_4X4_W-1:0] sad  // Computed SAD output
 );
 
-    import sad_pkg::*;
+    import me_pkg::*;
 
     logic [PEL_W-1:0]     sad_l0[4];
     logic [SAD_2X1_W-1:0] sad_l1[2];

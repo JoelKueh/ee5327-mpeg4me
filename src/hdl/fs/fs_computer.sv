@@ -1,4 +1,4 @@
-// sad_computer.sv
+// fs_computer.sv
 //
 // Performs first-level SAD computation using four SAD PE arrays.
 // Computes all 8x4, and 8x8 SADs. Does not compute 4x4 and 8x4 SADs to help
@@ -7,7 +7,7 @@
 // Buffers its own output, adding a one-cycle latency to the pipeline.
 //
 
-module sad_computer(
+module fs_computer(
     input  logic clk,                             // The primary clock
     input  logic clear,                           // Pipelined clear signal
     input  logic stall,                           // Pipelined stall signal
@@ -20,7 +20,7 @@ module sad_computer(
     output logic [SAD_8X8_W-1:0] sad_8x8[WINDOW_SIZE]     // Buffered output 8x8 row results
 );
 
-    import sad_pkg::*;
+    import me_pkg::*;
 
     logic [WINDOW_SIZE+6:0][PEL_W-1:0] rb_sr_q[4], rb_sr_d[4];
     logic [SAD_4X4_W-1:0] sad_4x4[4][WINDOW_SIZE];
@@ -28,7 +28,7 @@ module sad_computer(
     logic [SAD_8X8_W-1:0] sad_8x8_q[WINDOW_SIZE], sad_8x8_d[WINDOW_SIZE];
 
     // Instantiate 4 4x4_SAD PE arrays arranged as a full 8x8 block.
-    sad_pe_array pe_array_ul(
+    fs_pe_array pe_array_ul(
         .clk(clk),
         .clear(clear),
         .stall(stall),
@@ -39,7 +39,7 @@ module sad_computer(
         .sad(sad_4x4[0])
     );
 
-    sad_pe_array pe_array_ur(
+    fs_pe_array pe_array_ur(
         .clk(clk),
         .clear(clear),
         .stall(stall),
@@ -50,7 +50,7 @@ module sad_computer(
         .sad(sad_4x4[1])
     );
 
-    sad_pe_array pe_array_dl(
+    fs_pe_array pe_array_dl(
         .clk(clk),
         .clear(clear),
         .stall(stall),
@@ -61,7 +61,7 @@ module sad_computer(
         .sad(sad_4x4[2])
     );
 
-    sad_pe_array pe_array_dr(
+    fs_pe_array pe_array_dr(
         .clk(clk),
         .clear(clear),
         .stall(stall),

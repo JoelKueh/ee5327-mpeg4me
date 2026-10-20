@@ -1,4 +1,4 @@
-// sad_comparator.sv
+// fs_comparator.sv
 //
 // Compares SAD results and stores the best.
 //
@@ -10,7 +10,7 @@
 // NOTE: This module only supports WINDOW_SIZE=32.
 //
 
-module sad_comparator#(
+module fs_comparator#(
     int SAD_RESULT_W=SAD_8X4_W
 ) (
     input  logic clk,                                        // The primary clock
@@ -25,7 +25,7 @@ module sad_comparator#(
     output logic [SW_IDX_W-1:0] result_col                   // Column index of the result SAD
 );
 
-    import sad_pkg::*;
+    import me_pkg::*;
 
     logic [SAD_RESULT_W-1:0] sad_l4[16];
     logic [SAD_RESULT_W-1:0] sad_l3[8];

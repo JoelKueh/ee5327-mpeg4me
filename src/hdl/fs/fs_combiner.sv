@@ -1,9 +1,9 @@
-// sad_combiner.sv
+// fs_combiner.sv
 //
 // Combines SAD reults from the previous level 
 //
 
-module sad_combiner (
+module fs_combiner (
     input  logic clk,                                               // The primary clock
     input  logic clear,                                             // Pipelined clear signal
     input  logic stall,                                             // Pipelined stall signal
@@ -20,6 +20,6 @@ module sad_combiner (
     output logic [SAD_16X16_W-1:0] sad_16x16[2][WINDOW_SIZE]        // 16x16 SAD
 );
 
-    import sad_pkg::*;
+    import me_pkg::*;
 
 endmodule
