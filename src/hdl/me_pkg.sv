@@ -7,10 +7,12 @@ package me_pkg;
 
     parameter int FRAME_WIDTH = 1280;
     parameter int FRAME_HEIGHT = 720;
+    parameter int FRAME_ADDR_W = $clog2(FRAME_WIDTH * FRAME_HEIGHT);
 
     parameter int BLOCK_SIZE = 16;
     parameter int WINDOW_SIZE = 2 * BLOCK_SIZE;
     parameter int SW_IDX_W = $clog2(WINDOW_SIZE);
+    parameter int RB_ROW_IDX_W = $clog2(WINDOW_SIZE+7);
     
     parameter int PEL_W = 8;
 
@@ -20,8 +22,12 @@ package me_pkg;
     parameter int SAD_4X4_W = PEL_W + $clog2(4 * 4);
     parameter int SAD_8X4_W = PEL_W + $clog2(8 * 4);
     parameter int SAD_8X8_W = PEL_W + $clog2(8 * 8);
-    parameter int SAD_16X4_W = PEL_W + $clog2(16 * 4);
     parameter int SAD_16X8_W = PEL_W + $clog2(16 * 8);
     parameter int SAD_16X16_W = PEL_W + $clog2(16 * 16);
+
+    typedef struct {
+        logic [SW_IDX_W-1:0] row;
+        logic [SW_IDX_W-1:0] col;
+    } mv_t;
 
 endpackage

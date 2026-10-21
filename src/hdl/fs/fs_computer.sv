@@ -12,7 +12,7 @@ module fs_computer(
     input  logic clear,                           // Pipelined clear signal
     input  logic stall,                           // Pipelined stall signal
 
-    input  logic [3:0][PEL_W-1:0] cb[4],          // Candidate block input
+    input  logic [3:0][PEL_W-1:0] cb[4],          // Current block input
     input  logic [WINDOW_SIZE+6:0][PEL_W-1:0] rb, // Reference block input stream
     input  logic [SW_IDX_W-1:0] rb_row_idx,       // Reference block search window offset
 

@@ -21,11 +21,11 @@ interface sram_if#(
 
     modport mstr (
         input  rd_data,
-        output wr_en, wr_addr, rd_en, rd_addr
+        output wr_en, wr_addr, wr_data, rd_en, rd_addr
     );
 
     modport slv (
-        input  wr_en, wr_addr, rd_en, rd_addr,
+        input  wr_en, wr_addr, wr_data, rd_en, rd_addr,
         output rd_data
     );
 

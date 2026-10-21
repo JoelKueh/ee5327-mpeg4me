@@ -13,6 +13,7 @@
 module fs_comparator#(
     int SAD_RESULT_W=SAD_8X4_W
 ) (
+
     input  logic clk,                                        // The primary clock
     input  logic clear,                                      // Pipelined clear signal
     input  logic stall,                                      // Pipelined stall signal
@@ -21,8 +22,7 @@ module fs_comparator#(
     input  logic [SAD_RESULT_W-1:0] input_sads[WINDOW_SIZE], // Input SADs
 
     output logic [SAD_RESULT_W-1:0] result_sad,              // Reduced result SAD
-    output logic [SW_IDX_W-1:0] result_row,                  // Row index of the result SAD
-    output logic [SW_IDX_W-1:0] result_col                   // Column index of the result SAD
+    output me_pkg::mv_t result_mv                            // Result motion vector
 );
 
     import me_pkg::*;
@@ -99,11 +99,13 @@ module fs_comparator#(
             result_sad_q <= '1;
             result_row_q <= '0;
             result_col_q <= '0;
+            for (int i = 0; i < 4; i++) sad_l2_q[i] <= '0;
             for (int i = 0; i < 4; i++) col_l2_q[i] <= '0;
         end else begin
             result_sad_q <= result_sad_d;
             result_row_q <= result_row_d;
             result_col_q <= result_col_d;
+            sad_l2_q <= sad_l2_d;
             col_l2_q <= col_l2_d;
         end
     end
@@ -111,8 +113,8 @@ module fs_comparator#(
     always_comb begin
         // Assign the output based on the minimum SAD computation.
         result_sad = result_sad_q;
-        result_row = result_row_q;
-        result_col = result_col_q;
+        result_mv.row = result_row_q;
+        result_mv.col = result_col_q;
     end
 
 endmodule
