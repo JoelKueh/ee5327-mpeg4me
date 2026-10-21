@@ -18,11 +18,7 @@
 #   make TRACE=1
 # =============================================================================
 
-# ----- Configuration ---------------------------------------------------------
-
-# Top module to build. Switch to 'top' once src/hdl/top.sv is instantiated.
 TOP_MODULE ?= fs_computer
-
 VERILATOR  ?= verilator
 BUILD_DIR  ?= build
 
@@ -32,22 +28,16 @@ VERI_MK    := $(BUILD_DIR)/V$(TOP_MODULE).mk
 SIM_EXEC   := $(BUILD_DIR)/V$(TOP_MODULE)
 
 # ----- Sources -----------------------------------------------------------------
-# Must stay in elaboration order: packages, then interfaces, then modules.
-# Add new files here; the same order is used by the synthesis file list.
 
 V_SOURCES := \
     src/hdl/me_pkg.sv \
     src/hdl/sram_if.sv \
     src/hdl/fs/fs_pe.sv \
     src/hdl/fs/fs_pe_array.sv \
-    src/hdl/fs/fs_computer.sv
-
-# Pending — add back once buildable:
-#   src/hdl/fs/fs_combiner.sv   - verilator 5.053 rejects parameterized
-#                                 interface ports (sram_if#(...).mstr)
-#   src/hdl/ds/sad_result_if.sv - references SAD_4X8_W / SAD_4X16_W /
-#                                 sad_bitwidths_t, not yet in me_pkg
-#   src/hdl/top.sv              - still empty
+    src/hdl/fs/fs_computer.sv \
+	src/hdl/fs/fs_combiner.sv \
+	src/hdl/fs/fs_control.sv \
+	src/hdl/top.sv
 
 # C++ testbench sources. When non-empty the build links a full simulation
 # executable (verilator --exe) and 'make run' becomes available.
@@ -55,8 +45,6 @@ CPP_SOURCES :=
 
 # ----- Flags --------------------------------------------------------------------
 
-# -Wno-UNUSEDPARAM: me_pkg defines the full SAD bitwidth table for the
-# complete design, so parameters stay unused until the upper modules land.
 WARN_FLAGS := -Wall -Wno-UNUSEDPARAM
 
 LINT_FLAGS := --lint-only --top-module $(TOP_MODULE) $(WARN_FLAGS)

@@ -2,7 +2,7 @@
 = Full Search Architecture
 
 ```
-Candidate Block                     Reference Block
+Reference Block                     Current Block
  1 | 1 1 1 1  2 2 2 2  3 3 3 3       1 | x x x x
  2 | 1 1 1 1  2 2 2 2  3 3 3 3       2 | x x x x
  3 | 1 1 1 1  2 2 2 2  3 3 3 3       3 | x x x x
