@@ -99,7 +99,14 @@ module fs_combiner (
     end
 
     always_ff @(posedge clk) begin
-        
+        sad_8x8_q <= sad_8x8_d;
+        sad_16x8_q <= sad_16x8_d;
+        sad_16x16_q <= sad_16x16_d;
+    end
+
+    always_comb begin
+        sad_16x8 = sad_16x8_q;
+        sad_16x16 = sad_16x16_q;
     end
 
 endmodule
