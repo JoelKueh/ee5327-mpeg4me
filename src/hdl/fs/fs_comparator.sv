@@ -18,8 +18,7 @@ module fs_comparator#(
     input  logic clear,                                      // Pipelined clear signal
     input  logic stall,                                      // Pipelined stall signal
                                                                                                      
-    input  logic input_sads_valid,                           // Input SADs valid signal
-    input  logic [SW_IDX_W-1:0] input_row_idx,             // Row index of the input SADs
+    input  logic [SW_IDX_W-1:0] input_sw_idx,                // Row index of the input SADs
     input  logic [SAD_RESULT_W-1:0] input_sads[WINDOW_SIZE], // Input SADs
 
     output logic result_valid,                               // Result valid signal
@@ -79,7 +78,7 @@ module fs_comparator#(
         // Swap the reduced SAD with that in the register to maintain the minimum
         result_select = sad_l1[1] < sad_l1[0];
         result_sad_d = result_select ? sad_l1[1] : sad_l1[0];
-        result_row_d = input_row_idx - 1; // Comparator adds one cycle of latency.
+        result_row_d = input_sw_idx - 1; // Comparator adds one cycle of latency.
         result_col_d = {result_select, col_l1[result_select]};
         if (result_sad_d > result_sad_q) begin
             result_sad_d = result_sad_q;
@@ -114,7 +113,7 @@ module fs_comparator#(
 
     always_comb begin
         // Assign the output based on the minimum SAD computation.
-        result_valid = input_row_idx == 2;
+        result_valid = input_sw_idx == 2;
         result_sad = result_sad_q;
         result_mv.row = result_row_q;
         result_mv.col = result_col_q;

@@ -29,7 +29,7 @@ package me_pkg;
     parameter int SAD_16X8_W = PEL_W + $clog2(16 * 8);
     parameter int SAD_16X16_W = PEL_W + $clog2(16 * 16);
 
-    typedef struct {
+    typedef struct packed {
         logic [SW_IDX_W-1:0] row;
         logic [SW_IDX_W-1:0] col;
     } mv_t;
