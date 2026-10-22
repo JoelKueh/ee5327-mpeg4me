@@ -30,18 +30,14 @@ module fs_pe (
         if (stall) begin
             acc_d = acc_q;
         end else if (clear) begin
-            acc_d = '0;
+            acc_d = {3'b000, sad_l1[0]} + {3'b000, sad_l1[1]};
         end else begin
             acc_d = acc_q + {3'b000, sad_l1[0]} + {3'b000, sad_l1[1]};
         end
     end
 
     always_ff @(posedge clk) begin
-        if (clear) begin
-            acc_q <= '0;
-        end else begin
-            acc_q <= acc_d;
-        end
+        acc_q <= acc_d;
     end
 
     always_comb begin

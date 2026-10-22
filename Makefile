@@ -111,7 +111,16 @@ clean:
 SVUNIT_OUT   := $(BUILD_DIR)/svunit
 SVUNIT_DUT_F := $(SVUNIT_OUT)/dut.f
 
-export SVUNIT_INSTALL ?= /home/joel/opt/svunit-master
+# Use the vendored in-tree svunit so the build is self-contained: its
+# bin/ is prepended to PATH so runSVUnit/buildSVUnit resolve to the
+# patched in-tree copies, and the filelist/test discovery is scoped to
+# the project's testsuites via --directory (otherwise the framework's
+# own svunit.f files under lib/ would be swept into Verilator's -f list).
+export SVUNIT_INSTALL ?= $(CURDIR)/lib/svunit-master
+export PATH := $(CURDIR)/lib/svunit-master/bin:$(PATH)
+
+# One --directory flag per testsuite directory.
+SVUNIT_DIRS := $(foreach d,src/tb/module src/tb/full,--directory $(d))
 
 # runSVUnit cds into the outdir before invoking Verilator, so filelist
 # entries must be absolute paths.
@@ -125,7 +134,7 @@ SVUNIT_FLAGS := -s verilator -o $(SVUNIT_OUT) -f $(SVUNIT_DUT_F) \
                 -c_arg --timing -c_arg -j 0
 
 test: $(SVUNIT_DUT_F)
-	runSVUnit $(SVUNIT_FLAGS)
+	runSVUnit $(SVUNIT_FLAGS) $(SVUNIT_DIRS)
 
 test-module: $(SVUNIT_DUT_F)
 	runSVUnit $(SVUNIT_FLAGS) --directory src/tb/module
@@ -134,7 +143,7 @@ test-full: $(SVUNIT_DUT_F)
 	runSVUnit $(SVUNIT_FLAGS) --directory src/tb/full
 
 list-tests: $(SVUNIT_DUT_F)
-	runSVUnit $(SVUNIT_FLAGS) --list-tests
+	runSVUnit $(SVUNIT_FLAGS) $(SVUNIT_DIRS) --list-tests
 
 # ----- Synthesis (Synopsys Design Compiler, remote) ------------------------------
 #

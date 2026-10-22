@@ -12,9 +12,7 @@ module fs_pe_array_unit_test;
     import me_pkg::*;
     import svunit_pkg::svunit_testcase;
 
-    // ------------------------------------------------------------------
     // UUT signals
-    // ------------------------------------------------------------------
     logic clk;
     logic              clear;
     logic              stall;
@@ -24,9 +22,7 @@ module fs_pe_array_unit_test;
     logic [3:0][PEL_W-1:0]            cb;
     logic [SAD_4X4_W-1:0]             sad[WINDOW_SIZE];
 
-    // ------------------------------------------------------------------
     // UUT instance
-    // ------------------------------------------------------------------
     fs_pe_array dut (
         .clk         (clk),
         .clear       (clear),
@@ -38,7 +34,6 @@ module fs_pe_array_unit_test;
         .sad         (sad)
     );
 
-    // 10ns clock, free-running for the whole run.
     initial begin
         clk = 0;
         forever #5 clk = ~clk;
@@ -72,9 +67,6 @@ module fs_pe_array_unit_test;
     `SVUNIT_TESTS_BEGIN
 
     `SVTEST(skeleton_smoke)
-        // TODO: replace with real coverage of fs_pe_array.
-        `INFO("skeleton_smoke: free-running clock for a few cycles");
-        repeat (4) @(posedge clk);
     `SVTEST_END
 
     `SVUNIT_TESTS_END
