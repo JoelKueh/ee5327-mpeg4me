@@ -18,7 +18,7 @@
 #   make TRACE=1
 # =============================================================================
 
-TOP_MODULE ?= fs_computer
+TOP_MODULE ?= me_top
 VERILATOR  ?= verilator
 BUILD_DIR  ?= build
 
@@ -32,12 +32,14 @@ SIM_EXEC   := $(BUILD_DIR)/V$(TOP_MODULE)
 V_SOURCES := \
     src/hdl/me_pkg.sv \
     src/hdl/sram_if.sv \
+    src/hdl/sad_result_if.sv \
     src/hdl/fs/fs_pe.sv \
     src/hdl/fs/fs_pe_array.sv \
     src/hdl/fs/fs_computer.sv \
 	src/hdl/fs/fs_combiner.sv \
+	src/hdl/fs/fs_comparator.sv \
 	src/hdl/fs/fs_control.sv \
-	src/hdl/top.sv
+	src/hdl/me_top.sv
 
 # C++ testbench sources. When non-empty the build links a full simulation
 # executable (verilator --exe) and 'make run' becomes available.

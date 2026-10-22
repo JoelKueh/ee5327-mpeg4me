@@ -16,8 +16,8 @@ module fs_control (
     output logic [SW_IDX_W-1:0] cb_ready,         // Current block ready signal
     input  logic [SW_IDX_W-1:0] cb_valid,         // Current block data valid signal
     input  logic [3:0][PEL_W-1:0] cb[4],           // Current block input
-
-    // RAM interfaces used by the combiner.
+    
+    // RAM interfaces used by the comparator.
     sram_if.mstr ram_a,
     sram_if.mstr ram_b,
     sram_if.mstr ram_c,
@@ -29,7 +29,6 @@ module fs_control (
     import me_pkg::*;
 
     parameter int COMPUTER_LATENCY = 10;
-    parameter int COMBINER_LATENCY = 2;
 
     // Input data buffers
     logic [WINDOW_SIZE+6:0][PEL_W-1:0] rb_q, rb_d;
@@ -45,7 +44,7 @@ module fs_control (
     logic [SAD_8X4_W-1:0] sad_8x4[2][WINDOW_SIZE];
     logic [SAD_8X8_W-1:0] sad_8x8[WINDOW_SIZE];
     logic [SAD_16X8_W-1:0] sad_8x16[2][WINDOW_SIZE];
-    logic [SAD_16X8_W-1:0] sad_16x8[2][WINDOW_SIZE];
+    logic [SAD_16X8_W-1:0] sad_16x8[WINDOW_SIZE];
     logic [SAD_16X16_W-1:0] sad_16x16[WINDOW_SIZE];
 
     // Nets defining the row that each compuation belongs to
@@ -110,6 +109,7 @@ module fs_control (
         .cb_subblock_idx(cb_subblock_idx_q),
         .row_idx_8x8(row_idx_8x8),
         .sad_8x8(sad_8x8),
+        .sad_8x8_valid(row_idx_8x8 >= 4),
 
         .ram_a(ram_a),
         .ram_b(ram_b),
@@ -289,20 +289,48 @@ module fs_control (
 
     always_ff @(posedge clk or negedge rst_n) begin
         if (rst_n) begin
-            rb_q <= '0;
+			rb_q <= '0;
             rb_has_data_q <= '0;
-            cb_q <= '0;
+			for (int i = 0; i < 4; i++) cb_q[i] <= '0;
             cb_has_data_q <= '0;
-            rb_row_idx_q <= '1;
-            cb_subblock_idx_q <= '1;
+
+			rb_row_idx_q <= '0;
+			cb_subblock_idx_q <= '0;
+
+			for (int i = 0; i < 8; i++) min_8x4_q  [i] <= '0;
+			for (int i = 0; i < 8; i++) mv_8x4_q   [i] <= '0;
+			for (int i = 0; i < 4; i++) min_8x8_q  [i] <= '0;
+			for (int i = 0; i < 4; i++) mv_8x8_q   [i] <= '0;
+			for (int i = 0; i < 2; i++) min_8x16_q [i] <= '0;
+			for (int i = 0; i < 2; i++) mv_8x16_q  [i] <= '0;
+			for (int i = 0; i < 2; i++) min_16x8_q [i] <= '0;
+			for (int i = 0; i < 2; i++) mv_16x8_q  [i] <= '0;
+			for (int i = 0; i < 2; i++) min_16x16_q[i] <= '0;
+			for (int i = 0; i < 2; i++) mv_16x16_q [i] <= '0;
+
+            for (int i = 0; i < COMPUTER_LATENCY; i++) stall_q[i] <= '0;
             valid_q <= '0;
         end else begin
-            rb_q <= rb_d;
+			rb_q <= rb_d;
             rb_has_data_q <= rb_has_data_d;
-            cb_q <= cb_d;
-            cb_has_data_q <= cb_has_data_q;
-            rb_row_idx_q <= rb_row_idx_d;
-            cb_subblock_idx_q <= cb_subblock_idx_d;
+			cb_q <= cb_d;
+            cb_has_data_q <= cb_has_data_d;
+
+			rb_row_idx_q <= rb_row_idx_d;
+			cb_subblock_idx_q <= cb_subblock_idx_d;
+
+			min_8x4_q <= min_8x4_d;
+			mv_8x4_q <= mv_8x4_d;
+			min_8x8_q <= min_8x8_d;
+			mv_8x8_q <= mv_8x8_d;
+			min_8x16_q <= min_8x16_d;
+			mv_8x16_q <= mv_8x16_d;
+			min_16x8_q <= min_16x8_d;
+			mv_16x8_q <= mv_16x8_d;
+			min_16x16_q <= min_16x16_d;
+			mv_16x16_q <= mv_16x16_d;
+
+            stall_q <= stall_d;
             valid_q <= valid_d;
         end
     end

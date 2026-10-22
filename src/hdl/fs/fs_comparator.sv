@@ -18,7 +18,8 @@ module fs_comparator#(
     input  logic clear,                                      // Pipelined clear signal
     input  logic stall,                                      // Pipelined stall signal
                                                                                                      
-    input  logic [SW_IDX_W-1:0] input_row_idx,               // Row index of the input SADs
+    input  logic input_sads_valid,                           // Input SADs valid signal
+    input  logic [SW_IDX_W-1:0] input_row_idx,             // Row index of the input SADs
     input  logic [SAD_RESULT_W-1:0] input_sads[WINDOW_SIZE], // Input SADs
 
     output logic result_valid,                               // Result valid signal

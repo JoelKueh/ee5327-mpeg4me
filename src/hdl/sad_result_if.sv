@@ -6,6 +6,8 @@
 
 interface sad_result_if;
 
+    import me_pkg::*;
+
     logic valid;
 
     logic [SAD_4X4_W-1:0]   min_sad_4x4[16];

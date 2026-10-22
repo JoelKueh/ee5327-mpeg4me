@@ -7,9 +7,9 @@
 interface sram_if#(
     parameter ADDR_W=10,
     parameter DATA_W=32
-) (
-    inout wire clk
 );
+
+    import me_pkg::*;
 
     logic              wr_en;
     logic [ADDR_W-1:0] wr_addr;
