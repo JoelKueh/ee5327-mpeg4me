@@ -143,7 +143,7 @@ module fs_combiner (
                     ram_c.rd_en   = sad_valid_q[0];
                     ram_c.rd_addr = sw_idx_q[0];
                     for (int i = 0; i < WINDOW_SIZE; i++) begin
-                        sad_16x16_d[i] = ram_c.rd_data[i] + sad_16x8_q;
+                        sad_16x16_d[i] = ram_c.rd_data[i*WINDOW_SIZE +: SAD_16X8_W] + sad_16x8_q[i];
                     end
                 end
             endcase

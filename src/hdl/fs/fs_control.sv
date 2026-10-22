@@ -106,7 +106,7 @@ module fs_control (
     // Combiner - Combines first level SAD results into higher level reslts
     fs_combiner comb8x8 (
         .clk(clk),
-        .stall(stall_d[COMPUTER_LATENCY]),
+        .stall(stall_d[COMPUTER_LATENCY-1]),
 
         .sad_8x8_valid(row_idx_8x8 >= 4),
         .cb_subblock_idx(cb_subblock_idx_q),
@@ -130,7 +130,7 @@ module fs_control (
     fs_comparator#(SAD_8X4_W) comparator_8x4_1 (
         .clk(clk),
         .clear(row_idx_8x8 < 4),
-        .stall(stall_d[COMPUTER_LATENCY]),
+        .stall(stall_d[COMPUTER_LATENCY-1]),
 
         .input_sw_idx(rb2sw(row_idx_8x8)),
         .input_sads(sad_8x4[0]),
@@ -143,7 +143,7 @@ module fs_control (
     fs_comparator#(SAD_8X4_W) comparator_8x4_2 (
         .clk(clk),
         .clear(row_idx_8x8 < 4),
-        .stall(stall_d[COMPUTER_LATENCY]),
+        .stall(stall_d[COMPUTER_LATENCY-1]),
 
         .input_sw_idx(rb2sw(row_idx_8x8)),
         .input_sads(sad_8x4[1]),
@@ -156,7 +156,7 @@ module fs_control (
     fs_comparator#(SAD_8X8_W) comparator_8x8 (
         .clk(clk),
         .clear(row_idx_8x8 < 4),
-        .stall(stall_d[COMPUTER_LATENCY]),
+        .stall(stall_d[COMPUTER_LATENCY-1]),
 
         .input_sw_idx(rb2sw(row_idx_8x8)),
         .input_sads(sad_8x8),
@@ -170,7 +170,7 @@ module fs_control (
     fs_comparator#(SAD_16X8_W) comparator_16x8 (
         .clk(clk),
         .clear(sad_16x8_valid),
-        .stall(stall_d[COMPUTER_LATENCY]),
+        .stall(stall_d[COMPUTER_LATENCY-1]),
 
         .input_sw_idx(sw_idx_16x8),
         .input_sads(sad_16x8),
@@ -183,7 +183,7 @@ module fs_control (
     fs_comparator#(SAD_16X16_W) comparator_16x16 (
         .clk(clk),
         .clear(sad_16x16_valid),
-        .stall(stall_d[COMPUTER_LATENCY]),
+        .stall(stall_d[COMPUTER_LATENCY-1]),
 
         .input_sw_idx(sw_idx_16x16),
         .input_sads(sad_16x16),
