@@ -35,6 +35,8 @@ module fs_combiner (
     logic sad_valid_q[2], sad_valid_d[2];
 
     always_comb begin
+        sad_8x8_d = sad_8x8;
+        for (int i = 0; i < WINDOW_SIZE; i++) sad_16x8_d[i] = 'x;
         for (int i = 0; i < WINDOW_SIZE; i++) sad_16x16_d[i] = 'x;
 
         if (stall) begin

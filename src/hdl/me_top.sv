@@ -54,7 +54,9 @@ module me_top (
     output mv_t mv_8x8[4],
     output mv_t mv_8x16[2],
     output mv_t mv_16x8[2],
-    output mv_t mv_16x16
+    output mv_t mv_16x16,
+
+    output logic valid
 );
 
     import me_pkg::*;
@@ -101,6 +103,8 @@ module me_top (
 	assign mv_8x16  = results.mv_8x16;
 	assign mv_16x8  = results.mv_16x8;
 	assign mv_16x16 = results.mv_16x16;
+
+    assign valid = results.valid;
 
     fs_control control (.*);
 

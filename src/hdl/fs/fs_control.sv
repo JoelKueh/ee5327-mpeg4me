@@ -142,7 +142,7 @@ module fs_control (
 
     fs_comparator#(SAD_8X4_W) comparator_8x4_2 (
         .clk(clk),
-        .clear(row_idx_8x8 < 0),
+        .clear(row_idx_8x8 < 4),
         .stall(stall_d[COMPUTER_LATENCY]),
 
         .input_sw_idx(rb2sw(row_idx_8x8)),
@@ -338,21 +338,23 @@ module fs_control (
     end
 
     always_comb begin
-        results.min_sad_4x4 = '0;
-        results.min_sad_4x8 = '0;
+        for (int i = 0; i < 16; i++) results.min_sad_4x4[i] = '0;
+        for (int i = 0; i < 8; i++)  results.min_sad_4x8[i] = '0;
         results.min_sad_8x4 = min_8x4_q;
         results.min_sad_8x8 = min_8x8_q;
         results.min_sad_8x16 = min_8x16_q;
         results.min_sad_16x8 = min_16x8_q;
         results.min_sad_16x16 = min_16x16_q;
 
-        results.mv_4x4 = '0;
-        results.mv_4x8 = '0;
+        for (int i = 0; i < 16; i++) results.mv_4x4[i] = '0;
+        for (int i = 0; i < 8; i++)  results.mv_4x8[i] = '0;
         results.mv_8x4 = mv_8x4_q;
         results.mv_8x8 = mv_8x8_q;
         results.mv_8x16 = mv_8x16_q;
         results.mv_16x8 = mv_16x8_q;
         results.mv_16x16 = mv_16x16_q;
+
+        results.valid = result_16x16_valid;
     end
 
 endmodule
