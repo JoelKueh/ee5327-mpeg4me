@@ -14,18 +14,21 @@ module fs_computer(
 
     input  logic [3:0][PEL_W-1:0] cb[4],          // Current block input
     input  logic [WINDOW_SIZE+6:0][PEL_W-1:0] rb, // Reference block input stream
-    input  logic [SW_IDX_W-1:0] rb_row_idx,       // Reference block search window offset
+    input  logic [RB_ROW_IDX_W-1:0] rb_row_idx,   // Reference block search window offset
 
     output logic [SAD_8X4_W-1:0] sad_8x4[2][WINDOW_SIZE], // Buffered output 8x4 row resultss
-    output logic [SAD_8X8_W-1:0] sad_8x8[WINDOW_SIZE]     // Buffered output 8x8 row results
+    output logic [SAD_8X8_W-1:0] sad_8x8[WINDOW_SIZE],    // Buffered output 8x8 row results
+    output logic [RB_ROW_IDX_W-1:0] sad_row_idx           // SAD search window offset
 );
 
     import me_pkg::*;
 
     logic [WINDOW_SIZE+6:0][PEL_W-1:0] rb_sr_q[4], rb_sr_d[4];
+
     logic [SAD_4X4_W-1:0] sad_4x4[4][WINDOW_SIZE];
     logic [SAD_8X4_W-1:0] sad_8x4_q[2][WINDOW_SIZE], sad_8x4_d[2][WINDOW_SIZE];
     logic [SAD_8X8_W-1:0] sad_8x8_q[WINDOW_SIZE], sad_8x8_d[WINDOW_SIZE];
+    logic [RB_ROW_IDX_W-1:0] sad_row_idx_q, sad_row_idx_d;
 
     // Instantiate 4 4x4_SAD PE arrays arranged as a full 8x8 block.
     fs_pe_array pe_array_ul(
@@ -74,6 +77,7 @@ module fs_computer(
 
     always_comb begin
         rb_sr_d = rb_sr_q;
+        sad_row_idx_d = rb_row_idx - 10;
 
         // Compute the 8x4 and 8x8 results in one cycle
         for (int row = 0; row < WINDOW_SIZE; row++) begin
@@ -98,10 +102,12 @@ module fs_computer(
             for (int i = 0; i < WINDOW_SIZE; i++) sad_8x4_q[1][i] <= '0;
             for (int i = 0; i < WINDOW_SIZE; i++) sad_8x8_q[i] <= '0;
             for (int i = 0; i < 4; i++) rb_sr_q[i] <= '0;
+            sad_row_idx_q <= '0;
         end else begin
             sad_8x4_q <= sad_8x4_d;
             sad_8x8_q <= sad_8x8_d;
             rb_sr_q <= rb_sr_d;
+            sad_row_idx_q <= sad_row_idx_d;
         end
     end
 
@@ -109,6 +115,7 @@ module fs_computer(
     always_comb begin
         sad_8x4 = sad_8x4_q;
         sad_8x8 = sad_8x8_q;
+        sad_row_idx = sad_row_idx_q;
     end
 
 endmodule

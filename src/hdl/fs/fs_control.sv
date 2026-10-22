@@ -48,14 +48,44 @@ module fs_control (
     logic [SAD_16X8_W-1:0] sad_16x8[2][WINDOW_SIZE];
     logic [SAD_16X16_W-1:0] sad_16x16[WINDOW_SIZE];
 
-    // Buffered output for the shared 16x8 comparater.
-    logic [SAD_16X8_W-1:0] min_16x8_q, min_16x8_d;
-    logic [SAD_16X8_W-1:0] mv_16x8_q, mv_16x8_d;
-    logic [SAD_16X8_W-1:0] min_8x16_q;
-    logic [SAD_16X8_W-1:0] mv_8x16_q;
+    // Nets defining the row that each compuation belongs to
+    logic [RB_ROW_IDX_W-1:0] row_idx_8x8;
+    logic [RB_ROW_IDX_W-1:0] row_idx_16x8;
+    logic [RB_ROW_IDX_W-1:0] row_idx_16x16;
+
+    // Buffered output for the SAD computations
+    logic [SAD_8X4_W-1:0]   min_8x4_q  [8], min_8x4_d  [8];
+    logic [SAD_8X4_W-1:0]   mv_8x4_q   [8], mv_8x4_d   [8];
+    logic [SAD_8X8_W-1:0]   min_8x8_q  [4], min_8x8_d  [4];
+    logic [SAD_8X8_W-1:0]   mv_8x8_q   [4], mv_8x8_d   [4];
+    logic [SAD_16X8_W-1:0]  min_8x16_q [2], min_8x16_d [2];
+    logic [SAD_16X8_W-1:0]  mv_8x16_q  [2], mv_8x16_d  [2];
+    logic [SAD_16X8_W-1:0]  min_16x8_q [2], min_16x8_d [2];
+    logic [SAD_16X8_W-1:0]  mv_16x8_q  [2], mv_16x8_d  [2];
+    logic [SAD_16X16_W-1:0] min_16x16_q[2], min_16x16_d[2];
+    logic [SAD_16X16_W-1:0] mv_16x16_q [2], mv_16x16_d [2];
+
+    // Valid output of the different comparators
+    logic result_8x4_valid[2];
+    logic result_8x8_valid;
+    logic result_16x8_valid;
+    logic result_16x16_valid;
+
+    // Wire output of the different comparators
+    logic [SAD_8X4_W-1:0]   result_min_8x4[2];
+    logic [SAD_8X4_W-1:0]   result_mv_8x4[2];
+    logic [SAD_8X8_W-1:0]   result_min_8x8;
+    logic [SAD_8X8_W-1:0]   result_mv_8x8;
+    logic [SAD_16X8_W-1:0]  result_min_16x8;
+    logic [SAD_16X8_W-1:0]  result_mv_16x8;
+    logic [SAD_16X16_W-1:0] result_min_16x16;
+    logic [SAD_16X16_W-1:0] result_mv_16x16;
 
     // Stall signal computed from the state of the input data buffers.
     logic stall_q[COMPUTER_LATENCY], stall_d[COMPUTER_LATENCY];
+
+    // Block valid signal.
+    logic valid_q, valid_d;
 
     // Computer - Computes fisrt level SAD results from the RB stream
     fs_computer computer (
@@ -68,24 +98,26 @@ module fs_control (
         .rb_row_idx(rb_row_idx_q),
 
         .sad_8x4(sad_8x4),
-        .sad_8x8(sad_8x8)
+        .sad_8x8(sad_8x8),
+        .sad_row_idx(row_idx_8x8)
     );
 
     // Combiner - Combines first level SAD results into higher level reslts
-    fs_combiner combiner (
+    fs_combiner comb8x8 (
         .clk(clk),
-        .clear(cb_subblock_idx_q == 0),
         .stall(stall_d[COMPUTER_LATENCY]),
 
-        .sad_row_idx(rb_row_idx_q - COMPUTER_LATENCY),
+        .cb_subblock_idx(cb_subblock_idx_q),
+        .row_idx_8x8(row_idx_8x8),
         .sad_8x8(sad_8x8),
 
         .ram_a(ram_a),
         .ram_b(ram_b),
         .ram_c(ram_c),
 
-        .sad_8x16(sad_8x16),
+        .row_idx_16x8(row_idx_16x8),
         .sad_16x8(sad_16x8),
+        .row_idx_16x16(row_idx_16x16),
         .sad_16x16(sad_16x16)
     );
 
@@ -95,11 +127,12 @@ module fs_control (
         .clear(rb_row_idx_q == 0),
         .stall(stall_d[COMPUTER_LATENCY]),
 
-        .input_row_idx(rb_row_idx_q - COMPUTER_LATENCY),
+        .input_row_idx(row_idx_8x8),
         .input_sads(sad_8x4[0]),
 
-        .result_sad(results.min_sad_8x4),
-        .result_mv(results.mv_8x4)
+        .result_valid(result_8x4_valid[0]),
+        .result_sad(result_min_8x4[0]),
+        .result_mv(result_mv_8x4[0])
     );
 
     fs_comparator#(SAD_8X4_W) comparator_8x4_2 (
@@ -107,11 +140,12 @@ module fs_control (
         .clear(rb_row_idx_q == 0),
         .stall(stall_d[COMPUTER_LATENCY]),
 
-        .input_row_idx(rb_row_idx_q - COMPUTER_LATENCY),
+        .input_row_idx(row_idx_8x8),
         .input_sads(sad_8x4[1]),
 
-        .result_sad(results.min_sad_8x4),
-        .result_mv(results.mv_8x4)
+        .result_valid(result_8x4_valid[1]),
+        .result_sad(result_min_8x4[1]),
+        .result_mv(result_mv_8x4[1])
     );
 
     fs_comparator#(SAD_8X8_W) comparator_8x8 (
@@ -119,11 +153,12 @@ module fs_control (
         .clear(rb_row_idx_q == 0),
         .stall(stall_d[COMPUTER_LATENCY]),
 
-        .input_row_idx(rb_row_idx_q - COMPUTER_LATENCY),
-        .input_sads(sad_8x8[0]),
+        .input_row_idx(row_idx_8x8),
+        .input_sads(sad_8x8),
 
-        .result_sad(results.min_sad_8x8),
-        .result_mv(results.mv_8x8)
+        .result_valid(result_8x8_valid),
+        .result_sad(result_min_8x8),
+        .result_mv(result_mv_8x8)
     );
 
     // 16x8 comparator handles both 16x8 and 8x16 SADs
@@ -132,11 +167,12 @@ module fs_control (
         .clear(rb_row_idx_q == 0),
         .stall(stall_d[COMPUTER_LATENCY]),
 
-        .input_row_idx(rb_row_idx_q - COMPUTER_LATENCY),
-        .input_sads(sad_8x8[0]),
+        .input_row_idx(row_idx_16x8),
+        .input_sads(sad_16x8),
 
-        .result_sad(results.min_sad_16x8),
-        .result_mv(results.mv_16x8)
+        .result_valid(result_16x8_valid),
+        .result_sad(result_min_16x8),
+        .result_mv(result_mv_16x8)
     );
 
     fs_comparator#(SAD_16X16_W) comparator_16x16 (
@@ -144,11 +180,12 @@ module fs_control (
         .clear(rb_row_idx_q == 0),
         .stall(stall_d[COMPUTER_LATENCY]),
 
-        .input_row_idx(rb_row_idx_q - COMPUTER_LATENCY),
-        .input_sads(sad_8x8[0]),
+        .input_row_idx(row_idx_16x16),
+        .input_sads(sad_16x16),
 
-        .result_sad(results.min_sad_8x8),
-        .result_mv(results.mv_8x8)
+        .result_valid(result_16x16_valid),
+        .result_sad(result_min_16x16),
+        .result_mv(result_mv_16x16)
     );
 
     always_comb begin
@@ -158,6 +195,7 @@ module fs_control (
         cb_has_data_d = cb_has_data_q;
         rb_row_idx_d = rb_row_idx_q;
         cb_subblock_idx_d = cb_subblock_idx_q;
+        valid_d = '0;
 
         // For the first four rows, stream CB and RB simultaneously.
         for (int i = 1; i < COMPUTER_LATENCY; i++) stall_d[i] = stall_q[i-1];
@@ -193,6 +231,60 @@ module fs_control (
             rb_row_idx_d = rb_row_idx_q + 1;
             if (rb_row_idx_d == 0) cb_subblock_idx_d = cb_subblock_idx_q + 1;
         end
+
+        // Save the output results of the SAD computation.
+        min_8x4_d   = min_8x4_q;
+        mv_8x4_d    = mv_8x4_q;
+        min_8x8_d   = min_8x8_q;
+        mv_8x8_d    = mv_8x8_q;
+        min_8x16_d  = min_8x16_q;
+        mv_8x16_d   = mv_8x16_q;
+        min_16x8_d  = min_16x8_q;
+        mv_16x8_d   = mv_16x8_q;
+        min_16x16_d = min_16x16_q;
+        mv_16x16_d  = mv_16x16_q;
+
+        if (result_8x4_valid[0]) begin
+            min_8x4_d[2*(cb_subblock_idx_q-1)] = result_min_8x4[0];
+            mv_8x4_d[2*(cb_subblock_idx_q-1)] = result_mv_8x4[0];
+        end
+
+        if (result_8x4_valid[1]) begin
+            min_8x4_d[2*(cb_subblock_idx_q-1)+1] = result_min_8x4[1];
+            mv_8x4_d[2*(cb_subblock_idx_q-1)+1] = result_mv_8x4[1];
+        end
+
+        if (result_8x8_valid) begin
+            min_8x8_d[cb_subblock_idx_q-1] = result_min_8x8;
+            mv_8x8_d[cb_subblock_idx_q-1] = result_mv_8x8;
+        end
+
+        if (result_16x8_valid) begin
+            case (cb_subblock_idx_q)
+                2'd0: begin
+                    min_16x8_d[1] = result_min_16x8;
+                    mv_16x8_d[1] = result_mv_16x8;
+                end
+                2'd1: begin
+                    min_8x16_d[0] = result_min_16x8;
+                    mv_8x16_d[0] = result_mv_16x8;
+                end
+                2'd2: begin
+                    min_8x16_d[1] = result_min_16x8;
+                    mv_8x16_d[1] = result_mv_16x8;
+                end
+                2'd3: begin
+                    min_16x8_d[0] = result_min_16x8;
+                    mv_16x8_d[0] = result_mv_16x8;
+                end
+            endcase
+        end
+
+        if (result_16x16_valid) begin
+            min_16x16_d = result_min_16x16;
+            mv_16x16_d = result_mv_16x16;
+            valid_d = '1;
+        end
     end
 
     always_ff @(posedge clk or negedge rst_n) begin
@@ -203,6 +295,7 @@ module fs_control (
             cb_has_data_q <= '0;
             rb_row_idx_q <= '1;
             cb_subblock_idx_q <= '1;
+            valid_q <= '0;
         end else begin
             rb_q <= rb_d;
             rb_has_data_q <= rb_has_data_d;
@@ -210,6 +303,7 @@ module fs_control (
             cb_has_data_q <= cb_has_data_q;
             rb_row_idx_q <= rb_row_idx_d;
             cb_subblock_idx_q <= cb_subblock_idx_d;
+            valid_q <= valid_d;
         end
     end
 

@@ -6,6 +6,8 @@
 
 interface sad_result_if;
 
+    logic valid;
+
     logic [SAD_4X4_W-1:0]   min_sad_4x4[16];
     logic [SAD_8X4_W-1:0]   min_sad_4x8[8];
     logic [SAD_8X4_W-1:0]   min_sad_8x4[8];
@@ -23,14 +25,14 @@ interface sad_result_if;
     mv_t mv_16x16;
 
     modport source (
-        output min_sad_4x4, min_sad_4x8, min_sad_8x4, min_sad_8x8,
+        output valid, min_sad_4x4, min_sad_4x8, min_sad_8x4, min_sad_8x8,
                min_sad_8x16, min_sad_16x8, min_sad_16x16,
                mv_4x4, mv_4x8, mv_8x4, mv_8x8,
                mv_8x16, mv_16x8, mv_16x16
     );
 
     modport sink (
-        input  min_sad_4x4, min_sad_4x8, min_sad_8x4, min_sad_8x8,
+        input  valid, min_sad_4x4, min_sad_4x8, min_sad_8x4, min_sad_8x8,
                min_sad_8x16, min_sad_16x8, min_sad_16x16,
                mv_4x4, mv_4x8, mv_8x4, mv_8x8,
                mv_8x16, mv_16x8, mv_16x16
