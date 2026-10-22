@@ -46,7 +46,15 @@ module me_top (
     output logic [SAD_8X8_W-1:0]   min_sad_8x8[4],
     output logic [SAD_16X8_W-1:0]  min_sad_8x16[2],
     output logic [SAD_16X8_W-1:0]  min_sad_16x8[2],
-    output logic [SAD_16X16_W-1:0] min_sad_16x16
+    output logic [SAD_16X16_W-1:0] min_sad_16x16,
+
+    output mv_t mv_4x4[16],
+    output mv_t mv_4x8[8],
+    output mv_t mv_8x4[8],
+    output mv_t mv_8x8[4],
+    output mv_t mv_8x16[2],
+    output mv_t mv_16x8[2],
+    output mv_t mv_16x16
 );
 
     import me_pkg::*;
@@ -85,6 +93,14 @@ module me_top (
 	assign min_sad_8x16  = results.min_sad_8x16;
 	assign min_sad_16x8  = results.min_sad_16x8;
 	assign min_sad_16x16 = results.min_sad_16x16;
+
+	assign mv_4x4   = results.mv_4x4;
+	assign mv_4x8   = results.mv_4x8;
+	assign mv_8x4   = results.mv_8x4;
+	assign mv_8x8   = results.mv_8x8;
+	assign mv_8x16  = results.mv_8x16;
+	assign mv_16x8  = results.mv_16x8;
+	assign mv_16x16 = results.mv_16x16;
 
     fs_control control (.*);
 

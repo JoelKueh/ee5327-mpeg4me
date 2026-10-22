@@ -47,7 +47,6 @@ module fs_control (
     // Results of SAD computations from computer and combiner
     logic [SAD_8X4_W-1:0] sad_8x4[2][WINDOW_SIZE];
     logic [SAD_8X8_W-1:0] sad_8x8[WINDOW_SIZE];
-    logic [SAD_16X8_W-1:0] sad_8x16[2][WINDOW_SIZE];
     logic [SAD_16X8_W-1:0] sad_16x8[WINDOW_SIZE];
     logic [SAD_16X16_W-1:0] sad_16x16[WINDOW_SIZE];
 
