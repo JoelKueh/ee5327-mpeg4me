@@ -41,19 +41,15 @@ module fs_pe_unit_test;
         $dumpfile("fs_pe.vcd");
         $dumpvars(0);
         clk = 0;
-        forever begin
-            $display("[%0t] sad_l1=%h, %h, acc_d=%h, acc_q=%h",
-                $time, dut.sad_l1[0], dut.sad_l1[1], dut.acc_d, dut.acc_q);
-            #5 clk = ~clk;
-        end
+        forever #5 clk = ~clk;
     end
 
     task automatic drive_cycle(logic c, logic s, pe_row_t r, pe_row_t b);
         @(negedge clk);
         clear <= c;
         stall <= s;
-        rb    <= r;
-        cb    <= b;
+        rb    <= $random;
+        cb    <= $random;
         #0;
         @(posedge clk);
         #1;
@@ -103,7 +99,6 @@ module fs_pe_unit_test;
         drive_cycle(0, 0, 32'h0, 32'hFFFF_FFFF);
         drive_cycle(0, 0, 32'hFFFF_FFFF, 32'h0);
         drive_cycle(0, 0, 32'h0, 32'hFFFF_FFFF);
-
         `FAIL_UNLESS_LOG('hFF0 === sad, $sformatf("actual=0x%0h expected=0x%0h", 'hFF0, sad));
     `SVTEST_END
 

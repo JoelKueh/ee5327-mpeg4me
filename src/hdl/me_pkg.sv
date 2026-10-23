@@ -5,10 +5,6 @@
 
 package me_pkg;
 
-    function logic [SW_IDX_W-1:0] rb2sw(logic [RB_ROW_IDX_W-1:0] x);
-        return SW_IDX_W'(x - 4);
-    endfunction
-
     parameter int FRAME_WIDTH = 1280;
     parameter int FRAME_HEIGHT = 720;
     parameter int FRAME_ADDR_W = $clog2(FRAME_WIDTH * FRAME_HEIGHT);
@@ -28,6 +24,10 @@ package me_pkg;
     parameter int SAD_8X8_W = PEL_W + $clog2(8 * 8);
     parameter int SAD_16X8_W = PEL_W + $clog2(16 * 8);
     parameter int SAD_16X16_W = PEL_W + $clog2(16 * 16);
+
+    function logic [SW_IDX_W-1:0] rb2sw(logic [RB_ROW_IDX_W-1:0] x);
+        return SW_IDX_W'(x - 4);
+    endfunction
 
     typedef struct packed {
         logic [SW_IDX_W-1:0] row;

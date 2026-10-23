@@ -4,25 +4,25 @@
 //
 
 module fs_combiner (
-    input  logic clk,                                     // The primary clock
-    input  logic stall,                                   // Pipelined stall signal
+    input logic clk,   // The primary clock
+    input logic stall, // Pipelined stall signal
 
-    input  logic sad_8x8_valid,                           // Input SADs valid signal
-    input  logic [1:0] cb_subblock_idx,                   // Subblock index of the current block
-    input  logic [SW_IDX_W-1:0] sw_idx_8x8,               // Window index of the input SADs
-    input  logic [SAD_8X8_W-1:0] sad_8x8[WINDOW_SIZE],    // Input SADs
+    input logic sad_8x8_valid,  // Input SADs valid signal
+    input logic [1:0] cb_subblock_idx,  // Subblock index of the current block
+    input logic [me_pkg::SW_IDX_W-1:0] sw_idx_8x8,  // Window index of the input SADs
+    input logic [me_pkg::SAD_8X8_W-1:0] sad_8x8[me_pkg::WINDOW_SIZE],  // Input SADs
 
-    sram_if.mstr ram_a,                                   // First level RAM
-    sram_if.mstr ram_b,                                   // Second level RAM
-    sram_if.mstr ram_c,                                   // Third level RAM
+    sram_if.mstr ram_a,  // First level RAM
+    sram_if.mstr ram_b,  // Second level RAM
+    sram_if.mstr ram_c,  // Third level RAM
 
-    output logic sad_16x8_valid,                          // 16x8 SAD valid signal.
-    output logic [SW_IDX_W-1:0] sw_idx_16x8,              // SAD search window offset
-    output logic [SAD_16X8_W-1:0] sad_16x8[WINDOW_SIZE],  // Output port for 16x8 and 8x16 SAD
+    output logic sad_16x8_valid,  // 16x8 SAD valid signal.
+    output logic [me_pkg::SW_IDX_W-1:0] sw_idx_16x8,  // SAD search window offset
+    output logic [me_pkg::SAD_16X8_W-1:0] sad_16x8[me_pkg::WINDOW_SIZE],  // Output port for 16x8 and 8x16 SAD
 
-    output logic sad_16x16_valid,                         // 16x8 SAD valid signal.
-    output logic [SW_IDX_W-1:0] sw_idx_16x16,             // SAD search window offset
-    output logic [SAD_16X16_W-1:0] sad_16x16[WINDOW_SIZE] // 16x16 SAD
+    output logic sad_16x16_valid,  // 16x8 SAD valid signal.
+    output logic [me_pkg::SW_IDX_W-1:0] sw_idx_16x16,  // SAD search window offset
+    output logic [me_pkg::SAD_16X16_W-1:0] sad_16x16[me_pkg::WINDOW_SIZE]  // 16x16 SAD
 );
 
     import me_pkg::*;
@@ -49,22 +49,22 @@ module fs_combiner (
             sad_valid_d[1] = sad_valid_q[0];
         end
 
-        ram_a.wr_en = '0;
+        ram_a.wr_en   = '0;
         ram_a.wr_addr = 'x;
         ram_a.wr_data = 'x;
-        ram_a.rd_en = '0;
+        ram_a.rd_en   = '0;
         ram_a.rd_addr = 'x;
 
-        ram_b.wr_en = '0;
+        ram_b.wr_en   = '0;
         ram_b.wr_addr = 'x;
         ram_b.wr_data = 'x;
-        ram_b.rd_en = '0;
+        ram_b.rd_en   = '0;
         ram_b.rd_addr = 'x;
 
-        ram_c.wr_en = '0;
+        ram_c.wr_en   = '0;
         ram_c.wr_addr = 'x;
         ram_c.wr_data = 'x;
-        ram_c.rd_en = '0;
+        ram_c.rd_en   = '0;
         ram_c.rd_addr = 'x;
 
         if (sw_idx_8x8 >= 4) begin
@@ -74,7 +74,7 @@ module fs_combiner (
                     ram_a.wr_en   = sad_8x8_valid;
                     ram_a.wr_addr = sw_idx_8x8;
                     for (int i = 0; i < WINDOW_SIZE; i++) begin
-                        ram_a.wr_data[i*WINDOW_SIZE +: SAD_8X8_W] = sad_8x8[i];
+                        ram_a.wr_data[i*WINDOW_SIZE+:SAD_8X8_W] = sad_8x8[i];
                     end
 
                     // Produce an 8x16 SAD from RAM B and RAM A.
@@ -92,14 +92,14 @@ module fs_combiner (
                     ram_b.wr_en   = sad_8x8_valid;
                     ram_b.wr_addr = sw_idx_8x8;
                     for (int i = 0; i < WINDOW_SIZE; i++) begin
-                        ram_b.wr_data[i*WINDOW_SIZE +: SAD_8X8_W] = sad_8x8[i];
+                        ram_b.wr_data[i*WINDOW_SIZE+:SAD_8X8_W] = sad_8x8[i];
                     end
 
                     // Produce an 8x16 SAD from RAM A and the input.
                     ram_a.rd_en   = sad_8x8_valid;
                     ram_a.rd_addr = sw_idx_8x8;
                     for (int i = 0; i < WINDOW_SIZE; i++) begin
-                        sad_16x8_d[i] = ram_a.rd_data[i*WINDOW_SIZE +: SAD_8X8_W] + sad_8x8_q[i];
+                        sad_16x8_d[i] = ram_a.rd_data[i*WINDOW_SIZE+:SAD_8X8_W] + sad_8x8_q[i];
                     end
                 end
                 2'd2: begin
@@ -107,21 +107,21 @@ module fs_combiner (
                     ram_a.wr_en   = sad_8x8_valid;
                     ram_a.wr_addr = sw_idx_8x8;
                     for (int i = 0; i < WINDOW_SIZE; i++) begin
-                        ram_a.wr_data[i*WINDOW_SIZE +: SAD_8X8_W] = sad_8x8[i];
+                        ram_a.wr_data[i*WINDOW_SIZE+:SAD_8X8_W] = sad_8x8[i];
                     end
 
                     // Produce a 16x8 SAD from RAM A and the input.
                     ram_a.rd_en   = sad_8x8_valid;
                     ram_a.rd_addr = sw_idx_8x8;
                     for (int i = 0; i < WINDOW_SIZE; i++) begin
-                        sad_16x8_d[i] = ram_a.rd_data[i*WINDOW_SIZE +: SAD_8X8_W] + sad_8x8_q[i];
+                        sad_16x8_d[i] = ram_a.rd_data[i*WINDOW_SIZE+:SAD_8X8_W] + sad_8x8_q[i];
                     end
 
                     // Write the 8x16 SAD to RAM C.
                     ram_c.wr_en   = sad_valid_q[0];
                     ram_c.wr_addr = sw_idx_q[0];
                     for (int i = 0; i < WINDOW_SIZE; i++) begin
-                        ram_c.wr_data[i*WINDOW_SIZE +: SAD_16X8_W] = sad_16x8_d[i];
+                        ram_c.wr_data[i*WINDOW_SIZE+:SAD_16X8_W] = sad_16x8_d[i];
                     end
                 end
                 2'd3: begin
@@ -129,7 +129,7 @@ module fs_combiner (
                     ram_b.wr_en   = sad_8x8_valid;
                     ram_b.wr_addr = sw_idx_8x8;
                     for (int i = 0; i < WINDOW_SIZE; i++) begin
-                        ram_b.wr_data[i*WINDOW_SIZE +: SAD_8X8_W] = sad_8x8[i];
+                        ram_b.wr_data[i*WINDOW_SIZE+:SAD_8X8_W] = sad_8x8[i];
                     end
 
                     // Produce a 16x8 SAD from RAM B and the input.
@@ -143,7 +143,7 @@ module fs_combiner (
                     ram_c.rd_en   = sad_valid_q[0];
                     ram_c.rd_addr = sw_idx_q[0];
                     for (int i = 0; i < WINDOW_SIZE; i++) begin
-                        sad_16x16_d[i] = ram_c.rd_data[i*WINDOW_SIZE +: SAD_16X8_W] + sad_16x8_q[i];
+                        sad_16x16_d[i] = ram_c.rd_data[i*WINDOW_SIZE+:SAD_16X8_W] + sad_16x8_q[i];
                     end
                 end
             endcase

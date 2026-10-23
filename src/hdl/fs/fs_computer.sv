@@ -7,18 +7,18 @@
 // Buffers its own output, adding a one-cycle latency to the pipeline.
 //
 
-module fs_computer(
-    input  logic clk,                             // The primary clock
-    input  logic clear,                           // Pipelined clear signal
-    input  logic stall,                           // Pipelined stall signal
+module fs_computer (
+    input logic clk,    // The primary clock
+    input logic clear,  // Pipelined clear signal
+    input logic stall,  // Pipelined stall signal
 
-    input  logic [3:0][PEL_W-1:0] cb[4],          // Current block input
-    input  logic [WINDOW_SIZE+6:0][PEL_W-1:0] rb, // Reference block input stream
-    input  logic [RB_ROW_IDX_W-1:0] rb_row_idx,   // Reference block search window offset
+    input logic [3:0][me_pkg::PEL_W-1:0] cb[4],  // Current block input
+    input logic [me_pkg::WINDOW_SIZE+6:0][me_pkg::PEL_W-1:0] rb,  // Reference block input stream
+    input logic [me_pkg::RB_ROW_IDX_W-1:0] rb_row_idx,  // Reference block search window offset
 
-    output logic [SAD_8X4_W-1:0] sad_8x4[2][WINDOW_SIZE], // Buffered output 8x4 row resultss
-    output logic [SAD_8X8_W-1:0] sad_8x8[WINDOW_SIZE],    // Buffered output 8x8 row results
-    output logic [RB_ROW_IDX_W-1:0] sad_row_idx           // SAD search window offset
+    output logic [me_pkg::SAD_8X4_W-1:0] sad_8x4[2][me_pkg::WINDOW_SIZE], // Buffered output 8x4 row resultss
+    output logic [me_pkg::SAD_8X8_W-1:0] sad_8x8[me_pkg::WINDOW_SIZE],    // Buffered output 8x8 row results
+    output logic [me_pkg::RB_ROW_IDX_W-1:0] sad_row_idx  // SAD search window offset
 );
 
     import me_pkg::*;
@@ -31,7 +31,7 @@ module fs_computer(
     logic [RB_ROW_IDX_W-1:0] sad_row_idx_q, sad_row_idx_d;
 
     // Instantiate 4 4x4_SAD PE arrays arranged as a full 8x8 block.
-    fs_pe_array pe_array_ul(
+    fs_pe_array pe_array_ul (
         .clk(clk),
         .clear(clear),
         .stall(stall),
@@ -42,7 +42,7 @@ module fs_computer(
         .sad(sad_4x4[0])
     );
 
-    fs_pe_array pe_array_ur(
+    fs_pe_array pe_array_ur (
         .clk(clk),
         .clear(clear),
         .stall(stall),
@@ -53,7 +53,7 @@ module fs_computer(
         .sad(sad_4x4[1])
     );
 
-    fs_pe_array pe_array_dl(
+    fs_pe_array pe_array_dl (
         .clk(clk),
         .clear(clear),
         .stall(stall),
@@ -64,7 +64,7 @@ module fs_computer(
         .sad(sad_4x4[2])
     );
 
-    fs_pe_array pe_array_dr(
+    fs_pe_array pe_array_dr (
         .clk(clk),
         .clear(clear),
         .stall(stall),

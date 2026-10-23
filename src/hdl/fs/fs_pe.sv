@@ -4,17 +4,17 @@
 //
 
 module fs_pe (
-    input  logic clk,                 // The primary clock
-    input  logic clear,               // Synchronous, pipelined accumulator clear signal
-    input  logic stall,               // Pipelined stall signal
-    input  logic [3:0][PEL_W-1:0] rb, // Reference block input
-    input  logic [3:0][PEL_W-1:0] cb, // Current block input
-    output logic [SAD_4X4_W-1:0] sad  // Computed SAD output
+    input logic clk,  // The primary clock
+    input logic clear,  // Synchronous, pipelined accumulator clear signal
+    input logic stall,  // Pipelined stall signal
+    input logic [3:0][me_pkg::PEL_W-1:0] rb,  // Reference block input
+    input logic [3:0][me_pkg::PEL_W-1:0] cb,  // Current block input
+    output logic [me_pkg::SAD_4X4_W-1:0] sad  // Computed SAD output
 );
 
     import me_pkg::*;
 
-    logic [PEL_W-1:0]     sad_l0[4];
+    logic [    PEL_W-1:0] sad_l0[4];
     logic [SAD_2X1_W-1:0] sad_l1[2];
     logic [SAD_4X4_W-1:0] acc_q, acc_d;
 

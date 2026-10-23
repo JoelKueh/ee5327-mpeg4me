@@ -10,26 +10,26 @@
 // NOTE: This module only supports WINDOW_SIZE=32.
 //
 
-module fs_comparator#(
-    int SAD_RESULT_W=SAD_8X4_W
+module fs_comparator #(
+    int SAD_RESULT_W = me_pkg::SAD_8X4_W
 ) (
 
-    input  logic clk,                                        // The primary clock
-    input  logic clear,                                      // Pipelined clear signal
-    input  logic stall,                                      // Pipelined stall signal
-                                                                                                     
-    input  logic [SW_IDX_W-1:0] input_sw_idx,                // Row index of the input SADs
-    input  logic [SAD_RESULT_W-1:0] input_sads[WINDOW_SIZE], // Input SADs
+    input logic clk,    // The primary clock
+    input logic clear,  // Pipelined clear signal
+    input logic stall,  // Pipelined stall signal
 
-    output logic result_valid,                               // Result valid signal
-    output logic [SAD_RESULT_W-1:0] result_sad,              // Reduced result SAD
-    output me_pkg::mv_t result_mv                            // Result motion vector
+    input logic [me_pkg::SW_IDX_W-1:0] input_sw_idx,  // Row index of the input SADs
+    input logic [SAD_RESULT_W-1:0] input_sads[me_pkg::WINDOW_SIZE],  // Input SADs
+
+    output logic                           result_valid,  // Result valid signal
+    output logic        [SAD_RESULT_W-1:0] result_sad,    // Reduced result SAD
+    output me_pkg::mv_t                    result_mv      // Result motion vector
 );
 
     import me_pkg::*;
 
     logic [SAD_RESULT_W-1:0] sad_l4[16];
-    logic [SAD_RESULT_W-1:0] sad_l3[8];
+    logic [SAD_RESULT_W-1:0] sad_l3[ 8];
     logic [SAD_RESULT_W-1:0] sad_l2_q[4], sad_l2_d[4];
     logic [SAD_RESULT_W-1:0] sad_l1[2];
 
@@ -64,8 +64,8 @@ module fs_comparator#(
 
         for (int i = 0; i < 4; i++) begin
             select_l2[i] = sad_l3[2*i+1] < sad_l3[2*i];
-            sad_l2_d[i] = select_l2[i] ? sad_l3[2*i+1] : sad_l3[2*i];
-            col_l2_d[i] = {select_l2[i], select_l2[i] ? col_l3[2*i+1] : col_l3[2*i]};
+            sad_l2_d[i]  = select_l2[i] ? sad_l3[2*i+1] : sad_l3[2*i];
+            col_l2_d[i]  = {select_l2[i], select_l2[i] ? col_l3[2*i+1] : col_l3[2*i]};
         end
 
         // Pipeline stage 2
@@ -77,9 +77,9 @@ module fs_comparator#(
 
         // Swap the reduced SAD with that in the register to maintain the minimum
         result_select = sad_l1[1] < sad_l1[0];
-        result_sad_d = result_select ? sad_l1[1] : sad_l1[0];
-        result_row_d = input_sw_idx - 1; // Comparator adds one cycle of latency.
-        result_col_d = {result_select, col_l1[result_select]};
+        result_sad_d  = result_select ? sad_l1[1] : sad_l1[0];
+        result_row_d  = input_sw_idx - 1;  // Comparator adds one cycle of latency.
+        result_col_d  = {result_select, col_l1[result_select]};
         if (result_sad_d > result_sad_q) begin
             result_sad_d = result_sad_q;
             result_row_d = result_row_q;
