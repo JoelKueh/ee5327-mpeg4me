@@ -45,16 +45,19 @@ RTL_SOURCES := \
 SIM_SOURCES := \
 	$(realpath src/tb/common/fs_tb_common_pkg.sv)
 
-VCS_FLAGS := -full64 -Mupdate +v2k -sverilog -timescale=1ns/10ps -work build/work -kdb -debug_all \
+VCS_FLAGS := -full64 -Mupdate +v2k -sverilog -timescale=1ns/1ns -work build/work -kdb -debug_all \
 			 -l compile.log
 
 SVUNIT_OUT   := $(BUILD_DIR)/svunit
-SVUNIT_DUT_F := $(SVUNIT_OUT)/dut.f
-SVUNIT_DIRS := $(foreach d,src/tb/module src/tb/full,--directory $(d))
+SVUNIT_DUT_F := $(abspath $(SVUNIT_OUT)/dut.f)
+SVUNIT_DIRS  := --directory ../../src/tb/module --directory ../../src/tb/full
 
-SVUNIT_FLAGS := -s vcs -o $(SVUNIT_OUT) -f $(SVUNIT_DUT_F) \
-                -c -full64 -c -Mupdate -c +v2k -c -sverilog -c -timescale=1ns/10ps -c -kdb \
-				-c -debug_all -c "-l compile.log"
+SVUNIT_FLAGS := -s vcs -f $(SVUNIT_DUT_F) \
+                -d SVUNIT_TIMEOUT=500000ns \
+                -c -full64 -c -Mupdate -c +v2k -c -sverilog -c -timescale=1ns/1ns -c -kdb \
+                -c -debug_all -c "-l compile.log" \
+				-c -debug_acc+all+dmptf \
+                -c "+vcs+dumpvars+entire_run.vcd"
 
 export SVUNIT_INSTALL := $(CURDIR)/lib/svunit
 export PATH := $(CURDIR)/lib/svunit/bin:$(PATH)
@@ -82,16 +85,19 @@ $(SVUNIT_DUT_F): $(RTL_SOURCES)
 	@for f in $(SIM_SOURCES); do echo $$f >> $@; done
 
 test: $(SVUNIT_DUT_F)
-	runSVUnit $(SVUNIT_FLAGS) $(SVUNIT_DIRS)
+	cd $(SVUNIT_OUT) && runSVUnit $(SVUNIT_FLAGS) $(SVUNIT_DIRS)
+
+test-one: $(SVUNIT_DUT_F)
+	cd $(SVUNIT_OUT) && runSVUnit $(SVUNIT_FLAGS) -t ../../src/tb/module/$(TEST)
 
 test-module: $(SVUNIT_DUT_F)
-	runSVUnit $(SVUNIT_FLAGS) --directory src/tb/module
+	cd $(SVUNIT_OUT) && runSVUnit $(SVUNIT_FLAGS) --directory $(abspath src/tb/module)
 
 test-full: $(SVUNIT_DUT_F)
-	runSVUnit $(SVUNIT_FLAGS) --directory src/tb/full
+	cd $(SVUNIT_OUT) && runSVUnit $(SVUNIT_FLAGS) --directory $(abspath src/tb/full)
 
 list-tests: $(SVUNIT_DUT_F)
-	runSVUnit $(SVUNIT_FLAGS) $(SVUNIT_DIRS) --list-tests
+	cd $(SVUNIT_OUT) && runSVUnit $(SVUNIT_FLAGS) $(SVUNIT_DIRS) --list-tests
 
 # ----- Synthesis (Synopsys Design Compiler, remote) --------------------------
 

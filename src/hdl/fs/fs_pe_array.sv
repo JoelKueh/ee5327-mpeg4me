@@ -48,7 +48,7 @@ module fs_pe_array (
         if (clear) begin
             for (int i = 0; i < 4; i++) clear_row[i] = '1;
         end else begin
-            clear_row[row_idx_mod] = '1;
+            clear_row[row_idx_mod] = clear;
         end
 
         // Advance the CF buffer if we are not stalled.

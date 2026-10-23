@@ -76,8 +76,6 @@ module me_top_unit_test;
 
     // 10ns clock, free-running for the whole run.
     initial begin
-        $dumpfile("me_top.vcd");
-        $dumpvars(0);
         clk = 0;
         forever #5 clk = ~clk;
     end

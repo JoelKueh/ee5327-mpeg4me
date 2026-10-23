@@ -12,58 +12,6 @@ package fs_tb_common_pkg;
     function automatic int sad_reference(
         int cb_start_row, int cb_start_col, int rb_start_row, int rb_start_col,
         int sad_height, int sad_width,
-        pel_arr_unpacked_t rb, pel_arr_unpacked_t cb
-    );
-        logic [SAD_4X4_W-1:0] sum;
-        logic [PEL_W-1:0] cb_pel, rb_pel;
-
-        sum = '0;
-        for (int i = 0; i < sad_height; i++) begin
-            for (int j = 0; j < sad_width; j++) begin
-                cb_pel = cb[cb_start_row+i][cb_start_col+j];
-                rb_pel = rb[rb_start_row+i][rb_start_col+j];
-
-                if (cb_pel >= rb_pel) begin
-                    sum += cb_pel - rb_pel;
-                end else begin
-                    sum += rb_pel - cb_pel;
-                end
-            end
-        end
-
-        return sum;
-    endfunction
-
-    virtual class pel_unpack #(int HEIGHT, int WIDTH, int ELE_W);
-        static function pel_arr_unpacked_t f (logic [WIDTH-1:0][ELE_W-1:0] block[HEIGHT]);
-            logic [ELE_W-1:0] unpacked[][];
-
-            for (int row = 0; row < HEIGHT; row++) begin
-                for (int col = 0; col < WIDTH; col++) begin
-                    unpacked[row][col] = block[row][col];
-                end
-            end
-
-            return unpacked;
-        endfunction
-    endclass
-
-endpackage
-
-// fs_tb_common_pkg.sv
-//
-// Common package used by fs unit tests.
-//
-
-package fs_tb_common_pkg;
-
-    import me_pkg::*;
-
-    typedef logic [PEL_W-1:0] pel_arr_unpacked_t[][];
-
-    function automatic int sad_reference(
-        int cb_start_row, int cb_start_col, int rb_start_row, int rb_start_col,
-        int sad_height, int sad_width,
         const ref pel_arr_unpacked_t rb, const ref pel_arr_unpacked_t cb
     );
         int unsigned sum; // Prevents overflow when sad_height/width > 4

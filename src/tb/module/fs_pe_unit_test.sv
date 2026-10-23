@@ -38,8 +38,6 @@ module fs_pe_unit_test;
     fs_pe dut (.*);
 
     initial begin
-        $dumpfile("fs_pe.vcd");
-        $dumpvars(0);
         clk = 0;
         forever #5 clk = ~clk;
     end
@@ -48,8 +46,8 @@ module fs_pe_unit_test;
         @(negedge clk);
         clear <= c;
         stall <= s;
-        rb    <= $random;
-        cb    <= $random;
+        rb    <= r;
+        cb    <= b;
         #0;
         @(posedge clk);
         #1;
