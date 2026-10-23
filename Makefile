@@ -15,8 +15,10 @@
 #
 # svunit testbenches (local, Verilator; sources in src/tb):
 #   make test         build + run every testsuite (module + full level)
+#   make test-waves   run all tests + open per-test VCDs in surfer
 #   make test-module  run the module-level testsuite (src/tb/module) only
 #   make test-full    run the full-level testsuite (src/tb/full) only
+#   make farm-test    run all testsuites on the farm with VCS (vlsi)
 #   make list-tests   list the registered tests without running them
 #
 # Override from the command line, e.g.:
@@ -57,7 +59,7 @@ WARN_FLAGS := -Wall -Wno-UNUSEDPARAM
 
 LINT_FLAGS := --lint-only --top-module $(TOP_MODULE) $(WARN_FLAGS)
 
-BUILD_FLAGS := --cc --build -j 0 --top-module $(TOP_MODULE) \
+BUILD_FLAGS := --trace-vcd --cc --build -j 0 --top-module $(TOP_MODULE) \
                --Mdir $(BUILD_DIR) $(WARN_FLAGS)
 
 # VCD tracing (requires a testbench that enables it): make TRACE=1
@@ -97,7 +99,7 @@ run: build
 	fi
 
 wave: run
-	gtkwave $(BUILD_DIR)/*.vcd &
+	surfer $(BUILD_DIR)/*.vcd &
 
 clean:
 	rm -rf $(BUILD_DIR) $(FILELIST) *.vcd
@@ -130,17 +132,30 @@ $(SVUNIT_DUT_F): $(V_SOURCES)
 	@for f in $(V_SOURCES); do echo $(CURDIR)/$$f >> $@; done
 
 # --timing: svunit's clock generator and test bodies use # delays.
+# --trace-vcd: enables $dumpfile/$dumpvars in the tests; each test writes
+# its own <test>.vcd into $(SVUNIT_OUT) (runSVUnit cds into the outdir
+# before invoking the simulations).
 SVUNIT_FLAGS := -s verilator -o $(SVUNIT_OUT) -f $(SVUNIT_DUT_F) \
-                -c_arg --timing -c_arg -j 0
+                -c_arg --timing -c_arg -j 0 -c_arg --trace-vcd
 
 test: $(SVUNIT_DUT_F)
 	runSVUnit $(SVUNIT_FLAGS) $(SVUNIT_DIRS)
+
+test-waves: test
+	surfer $(SVUNIT_OUT)/*.vcd &
 
 test-module: $(SVUNIT_DUT_F)
 	runSVUnit $(SVUNIT_FLAGS) --directory src/tb/module
 
 test-full: $(SVUNIT_DUT_F)
 	runSVUnit $(SVUNIT_FLAGS) --directory src/tb/full
+
+# Run every testsuite on the farm with VCS: farm_runner.sh syncs the tree
+# up to vlsi, runs scripts/farm_svunit.sh in the farm checkout's output/
+# directory (VCS env sourced from ~/EE5327.zshrc), then syncs the results
+# (run.log, tests.xml, per-test VCDs) back to the repo root.
+farm-test: $(SVUNIT_DUT_F)
+	scripts/farm_runner.sh ../scripts/farm_svunit.sh $(CURDIR)
 
 list-tests: $(SVUNIT_DUT_F)
 	runSVUnit $(SVUNIT_FLAGS) $(SVUNIT_DIRS) --list-tests
@@ -186,8 +201,10 @@ help:
 	@echo "  run            build + run simulation (needs a C++ testbench)"
 	@echo "  wave           run + open waveforms in GTKWave"
 	@echo "  test           build + run all svunit testsuites (src/tb)"
+	@echo "  test-waves     run all tests + open per-test VCDs in surfer"
 	@echo "  test-module    run the module-level testsuite only"
 	@echo "  test-full      run the full-level testsuite only"
+	@echo "  farm-test      run all testsuites on the farm with VCS (vlsi)"
 	@echo "  list-tests     list registered svunit tests without running them"
 	@echo "  clean          remove build artifacts"
 	@echo "  filelist       generate $(FILELIST) for synthesis"
@@ -195,4 +212,4 @@ help:
 	@echo ""
 	@echo "Variables: TOP_MODULE=$(TOP_MODULE)  TRACE=$(TRACE)  SIM_ARGS='$(SIM_ARGS)'"
 
-.PHONY: all lint build run wave test test-module test-full list-tests clean filelist synth help
+.PHONY: all lint build run wave test test-module test-full farm-test list-tests clean filelist synth help

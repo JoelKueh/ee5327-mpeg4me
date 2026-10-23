@@ -42,6 +42,8 @@ module fs_computer_unit_test;
 
     // 10ns clock, free-running for the whole run.
     initial begin
+        $dumpfile("fs_computer.vcd");
+        $dumpvars(0);
         clk = 0;
         forever #5 clk = ~clk;
     end

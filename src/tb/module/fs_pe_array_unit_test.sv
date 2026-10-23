@@ -12,36 +12,46 @@ module fs_pe_array_unit_test;
     import me_pkg::*;
     import svunit_pkg::svunit_testcase;
 
-    // UUT signals
-    logic clk;
-    logic              clear;
-    logic              stall;
-    logic              load;
-    logic [1:0]        row_idx_mod;
-    logic [WINDOW_SIZE+2:0][PEL_W-1:0] rb;
-    logic [3:0][PEL_W-1:0]            cb;
-    logic [SAD_4X4_W-1:0]             sad[WINDOW_SIZE];
+    // ------------------------------------------------------------------
+    // test wiring
+    // ------------------------------------------------------------------
 
-    // UUT instance
-    fs_pe_array dut (
-        .clk         (clk),
-        .clear       (clear),
-        .stall       (stall),
-        .load        (load),
-        .row_idx_mod (row_idx_mod),
-        .rb          (rb),
-        .cb          (cb),
-        .sad         (sad)
-    );
+    typedef logic [WINDOW_SIZE+2:0][PEL_W-1:0] rb_row_t;
+    typedef logic [3:0][PEL_W-1:0] cb_row_t;
+
+    logic clk;
+    logic clear;
+    logic stall;
+    logic load;
+    logic [1:0] row_idx_mod;
+    logic [WINDOW_SIZE+2:0][PEL_W-1:0] rb;
+    logic [3:0][PEL_W-1:0] cb;
+    logic [SAD_4X4_W-1:0] sad[WINDOW_SIZE];
+
+    fs_pe_array dut (.*);
 
     initial begin
+        $dumpfile("fs_pe_array.vcd");
+        $dumpvars(0);
         clk = 0;
         forever #5 clk = ~clk;
     end
 
+    task automatic drive_cycle(logic c, logic s, rb_row_t r, cb_row_t b);
+        @(negedge clk);
+        clear <= c;
+        stall <= s;
+        rb    <= r;
+        cb    <= b;
+        #0;
+        @(posedge clk);
+        #1;
+    endtask
+
     // ------------------------------------------------------------------
     // svunit scaffolding
     // ------------------------------------------------------------------
+
     string name = "fs_pe_array_ut";
     svunit_testcase svunit_ut;
 
@@ -64,9 +74,15 @@ module fs_pe_array_unit_test;
         svunit_ut.teardown();
     endtask
 
+    // ------------------------------------------------------------------
+    // test definitions
+    // ------------------------------------------------------------------
+
+    /* verilator lint_off DECLFILENAME */
     `SVUNIT_TESTS_BEGIN
 
-    `SVTEST(skeleton_smoke)
+    `SVTEST(clear_resets_array)
+        drive_cycle(1, 0, 0, 0);
     `SVTEST_END
 
     `SVUNIT_TESTS_END

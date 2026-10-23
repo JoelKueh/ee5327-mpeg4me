@@ -3,3 +3,19 @@
 build/
 synth/filelist.f
 *.vcd
+
+# farm-test results synced back to the repo root
+run.log
+tests.xml
+dut.f
+.svunit.f
+.testrunner.sv
+.*testsuite.sv
+# VCS build leftovers if a farm run dies before cleanup
+csrc/
+simv
+simv.daidir/
+DVEfiles/
+ucf.dir/
+vc_hdrs.h
+vcs.log
