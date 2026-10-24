@@ -185,6 +185,66 @@ module fs_computer_unit_test;
         check(sad_8x4_buf, sad_8x8_buf, sad_row_idx_buf, rb_unp, cb_unp);
     `SVTEST_END
 
+    `SVTEST(min_sad)
+        rb_row_t rb_buf[$];
+        cb_row_t cb_buf[$];
+        pel_arr_unpacked_t rb_unp;
+        pel_arr_unpacked_t cb_unp;
+
+        logic [SAD_8X4_W-1:0] sad_8x4_buf[$][2][WINDOW_SIZE];
+        logic [SAD_8X8_W-1:0] sad_8x8_buf[$][WINDOW_SIZE];
+        logic [RB_ROW_IDX_W-1:0] sad_row_idx_buf[$];
+
+        for (int i = 0; i < 16; i++) rb_buf.push_back('1);
+        for (int i = 0; i < 8; i++) cb_buf.push_back('1);
+        rb_unp = fs_tb_common_pkg::pel_unpack#(16, WINDOW_SIZE+7)::f(rb_buf);
+        cb_unp = fs_tb_common_pkg::pel_unpack#(8, 8)::f(cb_buf);
+
+        drive(sad_8x4_buf, sad_8x8_buf, sad_row_idx_buf, rb_buf, cb_buf, 0);
+
+        check(sad_8x4_buf, sad_8x8_buf, sad_row_idx_buf, rb_unp, cb_unp);
+    `SVTEST_END
+
+    `SVTEST(max_sad)
+        rb_row_t rb_buf[$];
+        cb_row_t cb_buf[$];
+        pel_arr_unpacked_t rb_unp;
+        pel_arr_unpacked_t cb_unp;
+
+        logic [SAD_8X4_W-1:0] sad_8x4_buf[$][2][WINDOW_SIZE];
+        logic [SAD_8X8_W-1:0] sad_8x8_buf[$][WINDOW_SIZE];
+        logic [RB_ROW_IDX_W-1:0] sad_row_idx_buf[$];
+
+        for (int i = 0; i < 16; i++) rb_buf.push_back('1);
+        for (int i = 0; i < 8; i++) cb_buf.push_back('0);
+        rb_unp = fs_tb_common_pkg::pel_unpack#(16, WINDOW_SIZE+7)::f(rb_buf);
+        cb_unp = fs_tb_common_pkg::pel_unpack#(8, 8)::f(cb_buf);
+
+        drive(sad_8x4_buf, sad_8x8_buf, sad_row_idx_buf, rb_buf, cb_buf, 0);
+
+        check(sad_8x4_buf, sad_8x8_buf, sad_row_idx_buf, rb_unp, cb_unp);
+    `SVTEST_END
+
+    `SVTEST(typical)
+        rb_row_t rb_buf[$];
+        cb_row_t cb_buf[$];
+        pel_arr_unpacked_t rb_unp;
+        pel_arr_unpacked_t cb_unp;
+
+        logic [SAD_8X4_W-1:0] sad_8x4_buf[$][2][WINDOW_SIZE];
+        logic [SAD_8X8_W-1:0] sad_8x8_buf[$][WINDOW_SIZE];
+        logic [RB_ROW_IDX_W-1:0] sad_row_idx_buf[$];
+
+        std::randomize(rb_buf) with { rb_buf.size == 16; };
+        std::randomize(cb_buf) with { cb_buf.size == 8; };
+        rb_unp = fs_tb_common_pkg::pel_unpack#(16, WINDOW_SIZE+7)::f(rb_buf);
+        cb_unp = fs_tb_common_pkg::pel_unpack#(8, 8)::f(cb_buf);
+
+        drive(sad_8x4_buf, sad_8x8_buf, sad_row_idx_buf, rb_buf, cb_buf, 0);
+
+        check(sad_8x4_buf, sad_8x8_buf, sad_row_idx_buf, rb_unp, cb_unp);
+    `SVTEST_END
+
     `SVUNIT_TESTS_END
 
 endmodule
