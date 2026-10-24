@@ -1,0 +1,2 @@
+- Delay between putting a value in to the computer and getting it out is 9 cycles.
+  - Put data into the buffer on cycle 0, get data out on cycle 9

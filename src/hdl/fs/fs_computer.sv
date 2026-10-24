@@ -9,10 +9,9 @@
 
 module fs_computer (
     input logic clk,    // The primary clock
-    input logic clear,  // Pipelined clear signal
     input logic stall,  // Pipelined stall signal
 
-    input logic [3:0][me_pkg::PEL_W-1:0] cb[4],  // Current block input
+    input logic [7:0][me_pkg::PEL_W-1:0] cb,  // Current block input
     input logic [me_pkg::WINDOW_SIZE+6:0][me_pkg::PEL_W-1:0] rb,  // Reference block input stream
     input logic [me_pkg::RB_ROW_IDX_W-1:0] rb_row_idx,  // Reference block search window offset
 
@@ -33,51 +32,47 @@ module fs_computer (
     // Instantiate 4 4x4_SAD PE arrays arranged as a full 8x8 block.
     fs_pe_array pe_array_ul (
         .clk(clk),
-        .clear(clear),
         .stall(stall),
         .load(rb_row_idx < 4),
         .row_idx_mod(rb_row_idx[1:0]),
-        .rb(rb[WINDOW_SIZE+2:0]),
-        .cb(cb[0]),
+        .rb(rb_sr_q[3][WINDOW_SIZE+2:0]),
+        .cb(cb[3:0]),
         .sad(sad_4x4[0])
     );
 
     fs_pe_array pe_array_ur (
         .clk(clk),
-        .clear(clear),
         .stall(stall),
         .load(rb_row_idx < 4),
         .row_idx_mod(rb_row_idx[1:0]),
-        .rb(rb[WINDOW_SIZE+6:4]),
-        .cb(cb[1]),
+        .rb(rb_sr_q[3][WINDOW_SIZE+6:4]),
+        .cb(cb[7:4]),
         .sad(sad_4x4[1])
     );
 
     fs_pe_array pe_array_dl (
         .clk(clk),
-        .clear(clear),
         .stall(stall),
         .load(rb_row_idx < 8),
         .row_idx_mod(rb_row_idx[1:0]),
-        .rb(rb_sr_q[3][WINDOW_SIZE+2:0]),
-        .cb(cb[2]),
+        .rb(rb[WINDOW_SIZE+2:0]),
+        .cb(cb[3:0]),
         .sad(sad_4x4[2])
     );
 
     fs_pe_array pe_array_dr (
         .clk(clk),
-        .clear(clear),
         .stall(stall),
         .load(rb_row_idx < 8),
         .row_idx_mod(rb_row_idx[1:0]),
-        .rb(rb_sr_q[3][WINDOW_SIZE+6:4]),
-        .cb(cb[3]),
+        .rb(rb[WINDOW_SIZE+6:4]),
+        .cb(cb[7:4]),
         .sad(sad_4x4[3])
     );
 
     always_comb begin
         rb_sr_d = rb_sr_q;
-        sad_row_idx_d = rb_row_idx - 10;
+        sad_row_idx_d = rb_row_idx - 8;
 
         // Compute the 8x4 and 8x8 results in one cycle
         for (int row = 0; row < WINDOW_SIZE; row++) begin
@@ -97,18 +92,10 @@ module fs_computer (
 
     // Buffer the output of the 4x4 PE arrays
     always_ff @(posedge clk) begin
-        if (clear) begin
-            for (int i = 0; i < WINDOW_SIZE; i++) sad_8x4_q[0][i] <= '0;
-            for (int i = 0; i < WINDOW_SIZE; i++) sad_8x4_q[1][i] <= '0;
-            for (int i = 0; i < WINDOW_SIZE; i++) sad_8x8_q[i] <= '0;
-            for (int i = 0; i < 4; i++) rb_sr_q[i] <= '0;
-            sad_row_idx_q <= '0;
-        end else begin
-            sad_8x4_q <= sad_8x4_d;
-            sad_8x8_q <= sad_8x8_d;
-            rb_sr_q <= rb_sr_d;
-            sad_row_idx_q <= sad_row_idx_d;
-        end
+        sad_8x4_q <= sad_8x4_d;
+        sad_8x8_q <= sad_8x8_d;
+        rb_sr_q <= rb_sr_d;
+        sad_row_idx_q <= sad_row_idx_d;
     end
 
     // Assign the 8x4 and 8x8 output

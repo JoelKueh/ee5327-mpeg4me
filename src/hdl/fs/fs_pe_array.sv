@@ -4,7 +4,6 @@
 // cycle after fringe after a 3-cycle warm up.
 //
 
-
 module fs_pe_array (
     input logic       clk,         // The primary clock
     input logic       stall,       // Pipelined stall signal
@@ -34,7 +33,7 @@ module fs_pe_array (
                     .clear(clear_row[row]),
                     .stall(stall),
                     .rb(rb[col+3:col]),
-                    .cb(cb_d[row]), // TODO: Potentially fix timing path by buffering rb.
+                    .cb(cb_d[row]),  // TODO: Potentially fix timing path by buffering rb.
                     .sad(pe_sad[row][col])
                 );
             end
@@ -60,7 +59,7 @@ module fs_pe_array (
 
     // Buffer the result output.
     always_ff @(posedge clk) begin
-        cb_q  <= cb_d;
+        cb_q <= cb_d;
     end
 
 endmodule

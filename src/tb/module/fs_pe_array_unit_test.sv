@@ -37,11 +37,6 @@ module fs_pe_array_unit_test;
         clk = 0;
         forever begin
             #5 clk = ~clk;
-            //$display("[%d] rb=0x%h cb=0x%h acc_q=0x%0h", $time,
-            //    dut.pe_array_row[0].pe_array_col[0].pe.rb,
-            //    dut.pe_array_row[0].pe_array_col[0].pe.cb,
-            //    dut.pe_array_row[0].pe_array_col[0].pe.acc_d);
-            #5 clk = ~clk;
         end
     end
 
@@ -54,14 +49,14 @@ module fs_pe_array_unit_test;
         if (!s) row_idx_mod = c ? 0 : row_idx_mod + 1;
         @(posedge clk);
         #0;
-        $display("[%d] rb=0x%h cb=0x%h acc_q=0x%0h", $time,
-            dut.pe_array_row[0].pe_array_col[0].pe.rb,
-            dut.pe_array_row[0].pe_array_col[0].pe.cb,
-            dut.pe_array_row[0].pe_array_col[0].pe.acc_d);
-        $display("[%d] rb=0x%h cb=0x%h acc_q=0x%0h", $time,
-            dut.pe_array_row[1].pe_array_col[0].pe.rb,
-            dut.pe_array_row[1].pe_array_col[0].pe.cb,
-            dut.pe_array_row[1].pe_array_col[0].pe.acc_d);
+        // $display("[%d] rb=0x%h cb=0x%h acc_q=0x%0h", $time,
+        //    dut.pe_array_row[0].pe_array_col[0].pe.rb,
+        //    dut.pe_array_row[0].pe_array_col[0].pe.cb,
+        //    dut.pe_array_row[0].pe_array_col[0].pe.acc_d);
+        // $display("[%d] rb=0x%h cb=0x%h acc_q=0x%0h", $time,
+        //    dut.pe_array_row[1].pe_array_col[0].pe.rb,
+        //    dut.pe_array_row[1].pe_array_col[0].pe.cb,
+        //    dut.pe_array_row[1].pe_array_col[0].pe.acc_d);
     endtask
 
     // ------------------------------------------------------------------
@@ -98,18 +93,18 @@ module fs_pe_array_unit_test;
     `SVUNIT_TESTS_BEGIN
 
     `SVTEST(clear_resets_array)
-        rb_row_t rb_buf[4];
-        cb_row_t cb_buf[4];
+        rb_row_t rb_buf[$];
+        cb_row_t cb_buf[$];
         pel_arr_unpacked_t rb_unp;
         pel_arr_unpacked_t cb_unp;
 
-        for (int i = 0; i < 4; i++) rb_buf[i] = '1;
-        for (int i = 0; i < 4; i++) cb_buf[i] = '0;
+        for (int i = 0; i < 4; i++) rb_buf.push_back('1);
+        for (int i = 0; i < 4; i++) cb_buf.push_back('0);
         rb_unp = fs_tb_common_pkg::pel_unpack#(4, WINDOW_SIZE+3)::f(rb_buf);
         cb_unp = fs_tb_common_pkg::pel_unpack#(4, 4)::f(cb_buf);
 
-        drive_cycle(1, 0, 1, rb_buf[0], cb_buf[0]);
-        drive_cycle(0, 0, 1, rb_buf[1], cb_buf[1]);
+        drive_cycle(1, 0, 1, 'x, 'x);
+        drive_cycle(0, 0, 1, 'x, 'x);
         drive_cycle(1, 0, 1, rb_buf[0], cb_buf[0]);
         drive_cycle(0, 0, 1, rb_buf[1], cb_buf[1]);
         drive_cycle(0, 0, 1, rb_buf[2], cb_buf[2]);
@@ -123,13 +118,13 @@ module fs_pe_array_unit_test;
     `SVTEST_END
 
     `SVTEST(min_sads)
-        rb_row_t rb_buf[4];
-        cb_row_t cb_buf[4];
+        rb_row_t rb_buf[$];
+        cb_row_t cb_buf[$];
         pel_arr_unpacked_t rb_unp;
         pel_arr_unpacked_t cb_unp;
 
-        for (int i = 0; i < 4; i++) rb_buf[i] = '0;
-        for (int i = 0; i < 4; i++) cb_buf[i] = '0;
+        for (int i = 0; i < 4; i++) rb_buf.push_back('0);
+        for (int i = 0; i < 4; i++) cb_buf.push_back('0);
         rb_unp = fs_tb_common_pkg::pel_unpack#(4, WINDOW_SIZE+3)::f(rb_buf);
         cb_unp = fs_tb_common_pkg::pel_unpack#(4, 4)::f(cb_buf);
 
@@ -161,13 +156,13 @@ module fs_pe_array_unit_test;
     `SVTEST_END
 
     `SVTEST(max_sads)
-        rb_row_t rb_buf[4];
-        cb_row_t cb_buf[4];
+        rb_row_t rb_buf[$];
+        cb_row_t cb_buf[$];
         pel_arr_unpacked_t rb_unp;
         pel_arr_unpacked_t cb_unp;
 
-        for (int i = 0; i < 4; i++) rb_buf[i] = '1;
-        for (int i = 0; i < 4; i++) cb_buf[i] = '0;
+        for (int i = 0; i < 4; i++) rb_buf.push_back('1);
+        for (int i = 0; i < 4; i++) cb_buf.push_back('0);
         rb_unp = fs_tb_common_pkg::pel_unpack#(4, WINDOW_SIZE+3)::f(rb_buf);
         cb_unp = fs_tb_common_pkg::pel_unpack#(4, 4)::f(cb_buf);
 
@@ -199,13 +194,13 @@ module fs_pe_array_unit_test;
     `SVTEST_END
 
     `SVTEST(typical)
-        rb_row_t rb_buf[8];
-        cb_row_t cb_buf[4];
+        rb_row_t rb_buf[$];
+        cb_row_t cb_buf[$];
         pel_arr_unpacked_t rb_unp;
         pel_arr_unpacked_t cb_unp;
 
-        std::randomize(rb_buf);
-        std::randomize(cb_buf);
+        std::randomize(rb_buf) with { rb_buf.size == 8; };
+        std::randomize(cb_buf) with { cb_buf.size == 4; }; 
         rb_unp = fs_tb_common_pkg::pel_unpack#(8, WINDOW_SIZE+3)::f(rb_buf);
         cb_unp = fs_tb_common_pkg::pel_unpack#(4, 4)::f(cb_buf);
 
@@ -240,13 +235,13 @@ module fs_pe_array_unit_test;
     `SVTEST_END
 
     `SVTEST(typical_stall)
-        rb_row_t rb_buf[8];
-        cb_row_t cb_buf[4];
+        rb_row_t rb_buf[$];
+        cb_row_t cb_buf[$];
         pel_arr_unpacked_t rb_unp;
         pel_arr_unpacked_t cb_unp;
 
-        std::randomize(rb_buf);
-        std::randomize(cb_buf);
+        std::randomize(rb_buf) with { rb_buf.size == 8; };
+        std::randomize(cb_buf) with { cb_buf.size == 4; };
         rb_unp = fs_tb_common_pkg::pel_unpack#(8, WINDOW_SIZE+3)::f(rb_buf);
         cb_unp = fs_tb_common_pkg::pel_unpack#(4, 4)::f(cb_buf);
 

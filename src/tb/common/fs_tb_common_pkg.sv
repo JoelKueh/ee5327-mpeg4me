@@ -36,7 +36,7 @@ package fs_tb_common_pkg;
 
     // Removed ELE_W parameter since return type pel_arr_unpacked_t fixes width to PEL_W
     virtual class pel_unpack #(int HEIGHT = 4, int WIDTH = 4);
-        static function pel_arr_unpacked_t f (logic [WIDTH-1:0][PEL_W-1:0] block[HEIGHT]);
+        static function pel_arr_unpacked_t f (logic [WIDTH-1:0][PEL_W-1:0] block[$]);
             pel_arr_unpacked_t unpacked;
 
             // Allocate the 2D dynamic array to match the return type
