@@ -122,7 +122,7 @@ module fs_computer_unit_test;
                     "8x4[0][0x%0h], act=0x%0h exp=0x%0h", i-9, sad_8x4_buf[i][0][j], sad_buf)
                 );
 
-                sad_buf = fs_tb_common_pkg::sad_reference(0, 4, i-9, j, 8, 4, rb_unp, cb_unp);
+                sad_buf = fs_tb_common_pkg::sad_reference(0, 4, i-9, j+4, 8, 4, rb_unp, cb_unp);
                 `FAIL_UNLESS_LOG(sad_buf === sad_8x4_buf[i][1][j], $sformatf(
                     "8x4[1][0x%0h], act=0x%0h exp=0x%0h", i-9, sad_8x4_buf[i][1][j], sad_buf)
                 );
@@ -235,6 +235,8 @@ module fs_computer_unit_test;
         logic [SAD_8X8_W-1:0] sad_8x8_buf[$][WINDOW_SIZE];
         logic [RB_ROW_IDX_W-1:0] sad_row_idx_buf[$];
 
+        // for (int i = 0; i < 16; i++) rb_buf.push_back(32'hFFFFFFFF);
+        // for (int i = 0; i < 8; i++) cb_buf.push_back(64'hFFFFFFFF00000000);
         std::randomize(rb_buf) with { rb_buf.size == 16; };
         std::randomize(cb_buf) with { cb_buf.size == 8; };
         rb_unp = fs_tb_common_pkg::pel_unpack#(16, WINDOW_SIZE+7)::f(rb_buf);
