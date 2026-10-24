@@ -34,11 +34,11 @@ package me_pkg;
         logic [SW_IDX_W-1:0] col;
     } mv_t;
 
-    typedef enum {
+    typedef enum logic [1:0] {
         SAD_LXS_0 = 0,
         SAD_LXS_1 = 1,
         SAD_SXL_0 = 2,
         SAD_SXL_1 = 3
-    } comb_block_t;
+    } comb_sad_id_t;
 
 endpackage
