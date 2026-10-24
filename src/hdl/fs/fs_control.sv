@@ -28,7 +28,7 @@ module fs_control (
 
     import me_pkg::*;
 
-    parameter int COMPUTER_LATENCY = 10;
+    parameter int COMPUTER_LATENCY = 9;
 
     // Input data buffers
     logic [WINDOW_SIZE+6:0][PEL_W-1:0] rb_q, rb_d;
@@ -169,7 +169,7 @@ module fs_control (
     // 16x8 comparator handles both 16x8 and 8x16 SADs
     fs_comparator #(SAD_16X8_W) comparator_16x8 (
         .clk  (clk),
-        .clear(sad_16x8_valid),
+        .clear(!sad_16x8_valid),
         .stall(stall_d[COMPUTER_LATENCY-1]),
 
         .input_sw_idx(sw_idx_16x8),
@@ -182,7 +182,7 @@ module fs_control (
 
     fs_comparator #(SAD_16X16_W) comparator_16x16 (
         .clk  (clk),
-        .clear(sad_16x16_valid),
+        .clear(!sad_16x16_valid),
         .stall(stall_d[COMPUTER_LATENCY-1]),
 
         .input_sw_idx(sw_idx_16x16),

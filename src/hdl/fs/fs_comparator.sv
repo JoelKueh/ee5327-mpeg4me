@@ -13,12 +13,12 @@
 module fs_comparator #(
     int SAD_RESULT_W = me_pkg::SAD_8X4_W
 ) (
-
     input logic clk,    // The primary clock
-    input logic clear,  // Pipelined clear signal
     input logic stall,  // Pipelined stall signal
 
-    input logic [me_pkg::SW_IDX_W-1:0] input_sw_idx,  // Row index of the input SADs
+    input logic input_valid,  // Input sad valid signal
+    input logic input_last,   // Last input sad signal
+    input logic [me_pkg::SW_IDX_W-1:0] input_sw_idx, // Input sw idx
     input logic [SAD_RESULT_W-1:0] input_sads[me_pkg::WINDOW_SIZE],  // Input SADs
 
     output logic                           result_valid,  // Result valid signal
@@ -27,6 +27,9 @@ module fs_comparator #(
 );
 
     import me_pkg::*;
+
+    logic input_valid_q, input_valid_d;
+    logic input_last_q[2], input_last_d[2];
 
     logic [SAD_RESULT_W-1:0] sad_l4[16];
     logic [SAD_RESULT_W-1:0] sad_l3[ 8];
@@ -50,7 +53,7 @@ module fs_comparator #(
 
     always_comb begin
         // Pipeline stage 1
-        for (int i = 0; i < 16; i += 2) begin
+        for (int i = 0; i < 16; i++) begin
             select_l4[i] = input_sads[2*i+1] < input_sads[2*i];
             sad_l4[i] = select_l4[i] ? input_sads[2*i+1] : input_sads[2*i];
             col_l4[i] = select_l4[i];
@@ -86,23 +89,31 @@ module fs_comparator #(
             result_col_d = result_col_q;
         end
 
-        // Freeze the pipeline on stall
-        if (stall) begin
-            result_sad_d = result_sad_q;
-            result_row_d = result_row_q;
-            result_col_d = result_col_q;
-            col_l2_d = col_l2_q;
+        // Cary the valid and last signals through
+        input_valid_d = input_valid;
+        input_last_d[0] = input_last;
+        input_last_d[1] = input_last_q[0];
+
+        // Clear the sad register on invalid l2 accumulator value
+        if (!input_valid_q) begin
+            result_sad_d = '1;
+            result_row_d = '0;
+            result_col_d = '0;
         end
     end
 
     always_ff @(posedge clk) begin
-        if (clear) begin
-            result_sad_q <= '1;
-            result_row_q <= '0;
-            result_col_q <= '0;
-            for (int i = 0; i < 4; i++) sad_l2_q[i] <= '0;
-            for (int i = 0; i < 4; i++) col_l2_q[i] <= '0;
+        if (stall) begin
+            input_valid_q <= input_valid_q;
+            input_last_q <= input_last_q;
+            result_sad_q <= result_sad_q;
+            result_row_q <= result_row_q;
+            result_col_q <= result_col_q;
+            sad_l2_q <= sad_l2_q;
+            col_l2_q <= col_l2_q;
         end else begin
+            input_valid_q <= input_valid_d;
+            input_last_q <= input_last_d;
             result_sad_q <= result_sad_d;
             result_row_q <= result_row_d;
             result_col_q <= result_col_d;
@@ -113,7 +124,7 @@ module fs_comparator #(
 
     always_comb begin
         // Assign the output based on the minimum SAD computation.
-        result_valid = input_sw_idx == 2;
+        result_valid = input_last_q[1];
         result_sad = result_sad_q;
         result_mv.row = result_row_q;
         result_mv.col = result_col_q;

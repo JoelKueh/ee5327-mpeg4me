@@ -8,13 +8,17 @@ package fs_tb_common_pkg;
     import me_pkg::*;
 
     typedef logic [PEL_W-1:0] pel_arr_unpacked_t[][];
+    typedef struct {
+        int row;
+        int col;
+        int sad;
+    } sad_result_t;
 
     function automatic int sad_reference(
-        int cb_start_row, int cb_start_col, int rb_start_row, int rb_start_col,
-        int sad_height, int sad_width,
-        const ref pel_arr_unpacked_t rb, const ref pel_arr_unpacked_t cb
-    );
-        int unsigned sum; // Prevents overflow when sad_height/width > 4
+        int cb_start_row, int cb_start_col, int rb_start_row, int rb_start_col, int sad_height,
+        int sad_width, const ref pel_arr_unpacked_t rb, const ref pel_arr_unpacked_t cb);
+
+        int unsigned sum;  // Prevents overflow when sad_height/width > 4
         logic [PEL_W-1:0] cb_pel, rb_pel;
 
         sum = 0;
@@ -35,8 +39,11 @@ package fs_tb_common_pkg;
     endfunction
 
     // Removed ELE_W parameter since return type pel_arr_unpacked_t fixes width to PEL_W
-    virtual class pel_unpack #(int HEIGHT = 4, int WIDTH = 4);
-        static function pel_arr_unpacked_t f (logic [WIDTH-1:0][PEL_W-1:0] block[$]);
+    virtual class pel_unpack #(
+        int HEIGHT = 4,
+        int WIDTH  = 4
+    );
+        static function pel_arr_unpacked_t f(logic [WIDTH-1:0][PEL_W-1:0] block[$]);
             pel_arr_unpacked_t unpacked;
 
             // Allocate the 2D dynamic array to match the return type
@@ -51,5 +58,30 @@ package fs_tb_common_pkg;
             return unpacked;
         endfunction
     endclass
+
+    virtual class sad_minimum #(
+        int SAD_W
+    );
+        static function sad_result_t f(logic [SAD_W-1:0] sads[32][32]);
+            sad_result_t result;
+
+            result.sad = '1;
+            result.row = '0;
+            result.col = '0;
+
+            for (int i = 0; i < 32; i++) begin
+                for (int j = 0; j < 32; j++) begin
+                    if (sads[i][j] <= result.sad) begin
+                        result.sad = sads[i][j];
+                        result.row = i;
+                        result.col = j;
+                    end
+                end
+            end
+
+            return result;
+        endfunction
+    endclass
+
 
 endpackage
