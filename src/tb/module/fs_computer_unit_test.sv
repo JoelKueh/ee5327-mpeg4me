@@ -58,13 +58,13 @@ module fs_computer_unit_test;
         rb_row_idx = row_idx;
         #1;
         if (record) record_cycle(sad_8x4_buf, sad_8x8_buf, sad_row_idx_buf);
-        $display("[%d] rb_row_idx=0x%h sad_row_idx=0x%h rb=0x%h cb=0x%h acc_q=0x%0h pe.sad=0x%0h sad_8x8=0x%0h",
-            $time, rb_row_idx, dut.sad_row_idx_q,
-            dut.pe_array_ul.pe_array_row[0].pe_array_col[0].pe.rb,
-            dut.pe_array_ul.pe_array_row[0].pe_array_col[0].pe.cb,
-            dut.pe_array_ul.pe_array_row[0].pe_array_col[0].pe.acc_q,
-            dut.pe_array_ul.sad[0],
-            dut.sad_8x8_q[0]);
+        // $display("[%d] rb_row_idx=0x%h sad_row_idx=0x%h rb=0x%h cb=0x%h acc_q=0x%0h pe.sad=0x%0h sad_8x8=0x%0h",
+        //     $time, rb_row_idx, dut.sad_row_idx_q,
+        //     dut.pe_array_ul.pe_array_row[0].pe_array_col[0].pe.rb,
+        //     dut.pe_array_ul.pe_array_row[0].pe_array_col[0].pe.cb,
+        //     dut.pe_array_ul.pe_array_row[0].pe_array_col[0].pe.acc_q,
+        //     dut.pe_array_ul.sad[0],
+        //     dut.sad_8x8_q[0]);
         @(posedge clk);
         #0;
     endtask
@@ -102,14 +102,14 @@ module fs_computer_unit_test;
     );
         int sad_buf;
 
-        for (int i = 0; i < 20; i++) begin
-            $display("i=0x%0h ridx=0x%0h sad_8x8=0x%0h sad_8x4[0]=0x%0h sad_8x4[1]=0x%0h", i,
-                sad_row_idx_buf[i], sad_8x8_buf[i][0], sad_8x4_buf[i][0][0], sad_8x4_buf[i][1][0]);
-        end
-
-        for (int i = 0; i < 20; i++) begin
-            $display("i=0x%0h rb_unp=%p cb_unp=%p", i, rb_unp[i], cb_unp[i]);
-        end
+        // for (int i = 0; i < 20; i++) begin
+        //     $display("i=0x%0h ridx=0x%0h sad_8x8=0x%0h sad_8x4[0]=0x%0h sad_8x4[1]=0x%0h", i,
+        //         sad_row_idx_buf[i], sad_8x8_buf[i][0], sad_8x4_buf[i][0][0], sad_8x4_buf[i][1][0]);
+        // end
+        //
+        // for (int i = 0; i < 20; i++) begin
+        //     $display("i=0x%0h rb_unp=%p cb_unp=%p", i, rb_unp[i], cb_unp[i]);
+        // end
 
         for (int i = 9; i < 18; i++) begin
             for (int j = 0; j < WINDOW_SIZE; j++) begin
@@ -235,11 +235,9 @@ module fs_computer_unit_test;
         logic [SAD_8X8_W-1:0] sad_8x8_buf[$][WINDOW_SIZE];
         logic [RB_ROW_IDX_W-1:0] sad_row_idx_buf[$];
 
-        // for (int i = 0; i < 16; i++) rb_buf.push_back(32'hFFFFFFFF);
-        // for (int i = 0; i < 8; i++) cb_buf.push_back(64'hFFFFFFFF00000000);
-        std::randomize(rb_buf) with { rb_buf.size == 16; };
+        std::randomize(rb_buf) with { rb_buf.size == 39; };
         std::randomize(cb_buf) with { cb_buf.size == 8; };
-        rb_unp = fs_tb_common_pkg::pel_unpack#(16, WINDOW_SIZE+7)::f(rb_buf);
+        rb_unp = fs_tb_common_pkg::pel_unpack#(39, WINDOW_SIZE+7)::f(rb_buf);
         cb_unp = fs_tb_common_pkg::pel_unpack#(8, 8)::f(cb_buf);
 
         drive(sad_8x4_buf, sad_8x8_buf, sad_row_idx_buf, rb_buf, cb_buf, 0);
