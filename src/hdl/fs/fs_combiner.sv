@@ -60,37 +60,39 @@ module fs_combiner (
     logic [SAD_16X8_W-1:0] sad_16x8_q[WINDOW_SIZE], sad_16x8_d[WINDOW_SIZE];
     logic [SAD_16X16_W-1:0] sad_16x16_q[WINDOW_SIZE], sad_16x16_d[WINDOW_SIZE];
 
-    logic [1:0] sb_idx_8x8_q[2], sb_idx_8x8_d[2];
     logic [1:0] sb_idx_16x16_q, sb_idx_16x16_d;
 
-    logic [SW_IDX_W-1:0] sw_idx_q[2], sw_idx_d[2];
-    logic sad_valid_q[2], sad_valid_d[2];
-    logic sad_last_q[2], sad_last_d[2];
+    logic [1:0] sb_idx_q[3], sb_idx_d[3];
+    logic [SW_IDX_W-1:0] sw_idx_q[3], sw_idx_d[3];
+    logic sad_last_q[3], sad_last_d[3];
+    logic sad_valid_q[3], sad_valid_d[3];
 
     always_comb begin
-        sad_8x8_d = sad_8x8;
+        // Update pipeline registers
+        sad_8x8_d = 'x;
         for (int i = 0; i < WINDOW_SIZE; i++) sad_16x8_d[i] = 'x;
         for (int i = 0; i < WINDOW_SIZE; i++) sad_16x16_d[i] = 'x;
 
-        // Update pipeline registers
-        if (stall) begin
-            sb_idx_8x8_d = sb_idx_8x8_q;
-            sw_idx_d = sw_idx_q;
-            sad_valid_d = sad_valid_q;
-            sad_last_d = sad_last_q;
-        end else begin
-            sb_idx_8x8_d[0] = sb_idx_8x8;
-            sb_idx_8x8_d[1] = sb_idx_8x8_q[0];
-            sw_idx_d[0] = sw_idx_8x8;
-            sw_idx_d[1] = sw_idx_q[0];
-            sad_valid_d[0] = sad_8x8_valid;
-            sad_valid_d[1] = sad_valid_q[0];
+        sb_idx_16x16_d = sb_idx_16x16_q;
+
+        for (int i = 0; i < 3; i++) sb_idx_d[i] = 'x;
+        for (int i = 0; i < 3; i++) sw_idx_d[i] = 'x;
+        for (int i = 0; i < 3; i++) sad_last_d[i] = 'x;
+        sad_valid_d[0] = sad_8x8_valid;
+        sad_valid_d[1] = sad_valid_q[0];
+
+        // Get the valid 8x8 SAD from the input
+        if (sad_8x8_valid) begin
             sad_last_d[0] = sad_8x8_last;
             sad_last_d[1] = sad_last_q[0];
+            sb_idx_d[0] = sb_idx_8x8;
+            sb_idx_d[1] = sb_idx_q[0];
+            sw_idx_d[0] = sw_idx_8x8;
+            sw_idx_d[1] = sw_idx_q[0];
+            sad_8x8_d = sad_8x8;
         end
 
-        // Update output subblock index register on the last 16x16 SAD computation.
-
+        // Prevent latches on RAM inputs
         ram_a.wr_en = '0;
         ram_a.wr_addr = 'x;
         ram_a.wr_data = 'x;
@@ -109,86 +111,90 @@ module fs_combiner (
         ram_c_if.rd_en = '0;
         ram_c_if.rd_addr = 'x;
 
-        if (sw_idx_8x8 >= 4) begin
-            case (sb_idx_8x8)
-                2'd0: begin
-                    // Write the current SAD data to the A write port.
-                    ram_a_if.wr_en   = sad_8x8_valid;
-                    ram_a_if.wr_addr = sw_idx_8x8;
-                    for (int i = 0; i < WINDOW_SIZE; i++) begin
-                        ram_a_if.wr_data[i*WINDOW_SIZE+:SAD_8X8_W] = sad_8x8[i];
-                    end
-
-                    // Produce an 8x16 SAD from RAM B and RAM A.
-                    ram_a_if.rd_en   = sad_8x8_valid;
-                    ram_a_if.rd_addr = sw_idx_8x8;
-                    ram_b_if.rd_en   = sad_8x8_valid;
-                    ram_b_if.rd_addr = sw_idx_8x8;
-                    for (int i = 0; i < WINDOW_SIZE; i++) begin
-                        sad_16x8_d[i] = ram_a_if.rd_data[i*WINDOW_SIZE +: SAD_8X8_W]
-                            + ram_b_if.rd_data[i*WINDOW_SIZE +: SAD_8X8_W];
-                    end
+        // Write/read RAMs and compute upper level SADs
+        case (sb_idx_8x8)
+            2'd0: begin
+                // Write the current SAD data to the A write port.
+                ram_a_if.wr_en   = sad_8x8_valid;
+                ram_a_if.wr_addr = sw_idx_8x8;
+                for (int i = 0; i < WINDOW_SIZE; i++) begin
+                    ram_a_if.wr_data[i*WINDOW_SIZE+:SAD_8X8_W] = sad_8x8[i];
                 end
-                2'd1: begin
-                    // Write the current SAD data to the B write port.
-                    ram_b_if.wr_en   = sad_8x8_valid;
-                    ram_b_if.wr_addr = sw_idx_8x8;
-                    for (int i = 0; i < WINDOW_SIZE; i++) begin
-                        ram_b_if.wr_data[i*WINDOW_SIZE+:SAD_8X8_W] = sad_8x8[i];
-                    end
 
-                    // Produce an 8x16 SAD from RAM A and the input.
-                    ram_a_if.rd_en   = sad_8x8_valid;
-                    ram_a_if.rd_addr = sw_idx_8x8;
-                    for (int i = 0; i < WINDOW_SIZE; i++) begin
-                        sad_16x8_d[i] = ram_a_if.rd_data[i*WINDOW_SIZE+:SAD_8X8_W] + sad_8x8_q[i];
-                    end
+                // Produce an 8x16 SAD from RAM B and RAM A.
+                ram_a_if.rd_en   = sad_8x8_valid;
+                ram_a_if.rd_addr = sw_idx_8x8;
+                ram_b_if.rd_en   = sad_8x8_valid;
+                ram_b_if.rd_addr = sw_idx_8x8;
+                for (int i = 0; i < WINDOW_SIZE; i++) begin
+                    sad_16x8_d[i] = ram_a_if.rd_data[i*WINDOW_SIZE +: SAD_8X8_W]
+                        + ram_b_if.rd_data[i*WINDOW_SIZE +: SAD_8X8_W];
                 end
-                2'd2: begin
-                    // Write the current SAD data to the A write port.
-                    ram_a_if.wr_en   = sad_8x8_valid;
-                    ram_a_if.wr_addr = sw_idx_8x8;
-                    for (int i = 0; i < WINDOW_SIZE; i++) begin
-                        ram_a_if.wr_data[i*WINDOW_SIZE+:SAD_8X8_W] = sad_8x8[i];
-                    end
-
-                    // Produce a 16x8 SAD from RAM A and the input.
-                    ram_a_if.rd_en   = sad_8x8_valid;
-                    ram_a_if.rd_addr = sw_idx_8x8;
-                    for (int i = 0; i < WINDOW_SIZE; i++) begin
-                        sad_16x8_d[i] = ram_a_if.rd_data[i*WINDOW_SIZE+:SAD_8X8_W] + sad_8x8_q[i];
-                    end
-
-                    // Write the 8x16 SAD to RAM C.
-                    ram_c_if.wr_en   = sad_valid_q[0];
-                    ram_c_if.wr_addr = sw_idx_q[0];
-                    for (int i = 0; i < WINDOW_SIZE; i++) begin
-                        ram_c_if.wr_data[i*WINDOW_SIZE+:SAD_16X8_W] = sad_16x8_d[i];
-                    end
+            end
+            2'd1: begin
+                // Write the current SAD data to the B write port.
+                ram_b_if.wr_en   = sad_8x8_valid;
+                ram_b_if.wr_addr = sw_idx_8x8;
+                for (int i = 0; i < WINDOW_SIZE; i++) begin
+                    ram_b_if.wr_data[i*WINDOW_SIZE+:SAD_8X8_W] = sad_8x8[i];
                 end
-                2'd3: begin
-                    // Write the current SAD data to the B write port.
-                    ram_b_if.wr_en   = sad_8x8_valid;
-                    ram_b_if.wr_addr = sw_idx_8x8;
-                    for (int i = 0; i < WINDOW_SIZE; i++) begin
-                        ram_b_if.wr_data[i*WINDOW_SIZE+:SAD_8X8_W] = sad_8x8[i];
-                    end
 
-                    // Produce a 16x8 SAD from RAM B and the input.
-                    ram_b_if.rd_en   = sad_8x8_valid;
-                    ram_b_if.rd_addr = sw_idx_8x8;
-                    for (int i = 0; i < WINDOW_SIZE; i++) begin
-                        sad_16x8_d[i] = ram_b_if.rd_data[i] + sad_8x8_q[i];
-                    end
-
-                    // Produce a 16x16 SAD from RAM C and the current 16x8 SAD.
-                    ram_c_if.rd_en   = sad_valid_q[0];
-                    ram_c_if.rd_addr = sw_idx_q[0];
-                    for (int i = 0; i < WINDOW_SIZE; i++) begin
-                        sad_16x16_d[i] = ram_c_if.rd_data[i*WINDOW_SIZE+:SAD_16X8_W] + sad_16x8_q[i];
-                    end
+                // Produce an 8x16 SAD from RAM A and the input.
+                ram_a_if.rd_en   = sad_8x8_valid;
+                ram_a_if.rd_addr = sw_idx_8x8;
+                for (int i = 0; i < WINDOW_SIZE; i++) begin
+                    sad_16x8_d[i] = ram_a_if.rd_data[i*WINDOW_SIZE+:SAD_8X8_W] + sad_8x8_q[i];
                 end
-            endcase
+            end
+            2'd2: begin
+                // Write the current SAD data to the A write port.
+                ram_a_if.wr_en   = sad_8x8_valid;
+                ram_a_if.wr_addr = sw_idx_8x8;
+                for (int i = 0; i < WINDOW_SIZE; i++) begin
+                    ram_a_if.wr_data[i*WINDOW_SIZE+:SAD_8X8_W] = sad_8x8[i];
+                end
+
+                // Produce a 16x8 SAD from RAM A and the input.
+                ram_a_if.rd_en   = sad_8x8_valid;
+                ram_a_if.rd_addr = sw_idx_8x8;
+                for (int i = 0; i < WINDOW_SIZE; i++) begin
+                    sad_16x8_d[i] = ram_a_if.rd_data[i*WINDOW_SIZE+:SAD_8X8_W] + sad_8x8_q[i];
+                end
+
+                // Write the 8x16 SAD to RAM C.
+                ram_c_if.wr_en   = sad_valid_q[0];
+                ram_c_if.wr_addr = sw_idx_q[0];
+                for (int i = 0; i < WINDOW_SIZE; i++) begin
+                    ram_c_if.wr_data[i*WINDOW_SIZE+:SAD_16X8_W] = sad_16x8_d[i];
+                end
+            end
+            2'd3: begin
+                // Write the current SAD data to the B write port.
+                ram_b_if.wr_en   = sad_8x8_valid;
+                ram_b_if.wr_addr = sw_idx_8x8;
+                for (int i = 0; i < WINDOW_SIZE; i++) begin
+                    ram_b_if.wr_data[i*WINDOW_SIZE+:SAD_8X8_W] = sad_8x8[i];
+                end
+
+                // Produce a 16x8 SAD from RAM B and the input.
+                ram_b_if.rd_en   = sad_8x8_valid;
+                ram_b_if.rd_addr = sw_idx_8x8;
+                for (int i = 0; i < WINDOW_SIZE; i++) begin
+                    sad_16x8_d[i] = ram_b_if.rd_data[i] + sad_8x8_q[i];
+                end
+
+                // Produce a 16x16 SAD from RAM C and the current 16x8 SAD.
+                ram_c_if.rd_en   = sad_valid_q[0];
+                ram_c_if.rd_addr = sw_idx_q[0];
+                for (int i = 0; i < WINDOW_SIZE; i++) begin
+                    sad_16x16_d[i] = ram_c_if.rd_data[i*WINDOW_SIZE+:SAD_16X8_W] + sad_16x8_q[i];
+                end
+            end
+        endcase
+
+        // Update 16x16 subblock index if computation for current subblock is complete.
+        if (sad_last_q[2] && sb_idx_q[2] == 2'd3) begin
+            sb_idx_16x16_d = sb_idx_16x16_q + 1;
         end
     end
 
@@ -198,38 +204,37 @@ module fs_combiner (
             sad_16x8_q <= '0;
             sad_16x16_q <= '0;
 
-            sb_idx_8x8_q <= '0;
             sb_idx_16x16_q <= '0;
 
+            sb_idx_q <= '0;
             sw_idx_q <= '0;
-            sad_valid_q <= '0;
             sad_last_q <= '0;
-
-            clear_q <= '0;
-            stall_q <= '0;
+            sad_valid_q <= '0;
         end else begin
             sad_8x8_q <= sad_8x8_d;
             sad_16x8_q <= sad_16x8_d;
             sad_16x16_q <= sad_16x16_d;
 
-            sb_idx_8x8_q <= sb_idx_8x8_d;
             sb_idx_16x16_q <= sb_idx_16x16_d;
 
+            sb_idx_q <= sb_idx_d;
             sw_idx_q <= sw_idx_d;
-            sad_valid_q <= sad_valid_d;
             sad_last_q <= sad_last_d;
-
-            clear_q <= clear_d;
-            stall_q <= stall_d;
+            sad_valid_q <= sad_valid_d;
         end
     end
 
     always_comb begin
-        sw_idx_16x8 = sw_idx_q[0];
-        sad_16x8_valid = sad_valid_q[0];
+        sad_16x8_valid = sad_valid_q[1];
+        sad_16x8_last = sad_last_q[1];
+        sad_16x8_id = sb_idx_q[1];
+        sw_idx_16x8 = sw_idx_q[1];
         sad_16x8 = sad_16x8_q;
-        sw_idx_16x16 = sw_idx_q[1];
-        sad_16x16_valid = sad_valid_q[1];
+
+        sad_16x16_valid = sad_valid_q[2];
+        sad_16x16_last = sad_last_q[2];
+        sb_idx_16x16 = sb_idx_16x16_q;
+        sw_idx_16x16 = sw_idx_q[2];
         sad_16x16 = sad_16x16_q;
     end
 
