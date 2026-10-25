@@ -28,6 +28,8 @@ module fs_computer (
     logic [SAD_4X4_W-1:0] sad_4x4[4][WINDOW_SIZE];
     logic [SAD_8X4_W-1:0] sad_8x4_q[2][WINDOW_SIZE], sad_8x4_d[2][WINDOW_SIZE];
     logic [SAD_8X8_W-1:0] sad_8x8_q[WINDOW_SIZE], sad_8x8_d[WINDOW_SIZE];
+
+    logic [1:0] row_idx_mod_q[4], row_idx_mod_d[4];
     logic [SW_IDX_W-1:0] sad_sw_idx_q[2], sad_sw_idx_d[2];
     logic sad_valid_q[2], sad_valid_d[2];
 
@@ -36,7 +38,7 @@ module fs_computer (
         .clk(clk),
         .stall(!bd_valid),
         .load(rb_row_idx < 4),
-        .row_idx_mod(rb_row_idx[1:0]),
+        .row_idx_mod(row_idx_mod_q[3]),
         .rb(rb_sr_q[3][WINDOW_SIZE+2:0]),
         .cb(cb[3:0]),
         .sad(sad_4x4[0])
@@ -46,7 +48,7 @@ module fs_computer (
         .clk(clk),
         .stall(!bd_valid),
         .load(rb_row_idx < 4),
-        .row_idx_mod(rb_row_idx[1:0]),
+        .row_idx_mod(row_idx_mod_q[3]),
         .rb(rb_sr_q[3][WINDOW_SIZE+6:4]),
         .cb(cb[7:4]),
         .sad(sad_4x4[1])
@@ -56,7 +58,7 @@ module fs_computer (
         .clk(clk),
         .stall(!bd_valid),
         .load(rb_row_idx < 8),
-        .row_idx_mod(rb_row_idx[1:0]),
+        .row_idx_mod(row_idx_mod_q[3]),
         .rb(rb[WINDOW_SIZE+2:0]),
         .cb(cb[3:0]),
         .sad(sad_4x4[2])
@@ -66,7 +68,7 @@ module fs_computer (
         .clk(clk),
         .stall(!bd_valid),
         .load(rb_row_idx < 8),
-        .row_idx_mod(rb_row_idx[1:0]),
+        .row_idx_mod(row_idx_mod_q[3]),
         .rb(rb[WINDOW_SIZE+6:4]),
         .cb(cb[7:4]),
         .sad(sad_4x4[3])
@@ -74,8 +76,11 @@ module fs_computer (
 
     always_comb begin
         rb_sr_d = rb_sr_q;
+        row_idx_mod_d = row_idx_mod_q;
+
         sad_sw_idx_d[0] = rb_row_idx - 7;
         sad_sw_idx_d[1] = sad_sw_idx_q[0];
+
         sad_valid_d[0] = rb_row_idx >= 7 && bd_valid;
         sad_valid_d[1] = sad_valid_q[0];
 
@@ -92,6 +97,11 @@ module fs_computer (
             rb_sr_d[1] = rb_sr_q[0];
             rb_sr_d[2] = rb_sr_q[1];
             rb_sr_d[3] = rb_sr_q[2];
+
+            row_idx_mod_d[0] = rb_row_idx[1:0];
+            row_idx_mod_d[1] = row_idx_mod_q[0];
+            row_idx_mod_d[2] = row_idx_mod_q[1];
+            row_idx_mod_d[3] = row_idx_mod_q[2];
         end
     end
 
@@ -100,6 +110,7 @@ module fs_computer (
         sad_8x4_q <= sad_8x4_d;
         sad_8x8_q <= sad_8x8_d;
         rb_sr_q <= rb_sr_d;
+        row_idx_mod_q <= row_idx_mod_d;
         sad_sw_idx_q <= sad_sw_idx_d;
         sad_valid_q <= sad_valid_d;
     end

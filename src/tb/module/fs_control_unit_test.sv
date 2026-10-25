@@ -138,6 +138,14 @@ module fs_control_unit_test;
             // Stream 5: 16x16
             if (result_16x16_valid) begin
                 int b_idx = cnt_16x16;
+                if (result_min_16x16 !== exp_mb_q[b_idx].min_16x16) begin
+                    $display("\n[DEBUG @ %0t] 16x16[0] MISMATCH (b_idx=%0d):", $time, b_idx);
+                    $display("  DUT: min_sad = %0d (0x%h), mv = 0x%h (hi5=%0d, lo5=%0d)",
+                             result_min_16x16, result_min_16x16, result_mv_16x16,
+                             result_mv_16x16[9:5], result_mv_16x16[4:0]);
+                    $display("  EXP: min_sad = %0d, mv = 0x%h",
+                             exp_mb_q[b_idx].min_16x16, exp_mb_q[b_idx].min_16x16);
+                end
                 `FAIL_UNLESS_EQUAL(result_min_16x16, exp_mb_q[b_idx].min_16x16)
                 `FAIL_UNLESS_EQUAL(result_mv_16x16,  exp_mb_q[b_idx].mv_16x16)
                 cnt_16x16 <= cnt_16x16 + 1;
@@ -172,40 +180,6 @@ module fs_control_unit_test;
             end
         end
     endtask
-
-    // task automatic get_sb(inout rb_row_t rb_d[39], cb_row_t cb_d[8], input frame_t rf, frame_t cf,
-    //                       int b_idx, int sb_idx);
-    //     int signed b_row, b_col;
-    //     int signed rf_row, rf_col;
-    //     int signed cf_row, cf_col;
-    //
-    //     b_row = b_idx / 80;
-    //     b_col = b_idx % 80;
-    //
-    //     rf_row = (b_row - 1) * 16;
-    //     rf_col = (b_col - 1) * 16;
-    //
-    //     for (int row = 0; row < 39; row++) begin
-    //         for (int col = 0; col < 39; col++) begin
-    //             if (row >= 0 && row < 720 && col >= 0 && col < 1280)
-    //                 rb_d[row][col] = rf[rf_row+row][rf_col+col];
-    //             else
-    //                 rb_d[row][col] = '0;
-    //         end
-    //     end
-    //
-    //     cf_row = b_row * 16;
-    //     cf_col = b_col * 16;
-    //
-    //     for (int row = 0; row < 8; row++) begin
-    //         for (int col = 0; col < 8; col++) begin
-    //             if (row >= 0 && row < 720 && col >= 0 && col < 1280)
-    //                 cb_d[row][col] = cf[cf_row+row][cf_col+col];
-    //             else
-    //                 cb_d[row][col] = '0;
-    //         end
-    //     end
-    // endtask
 
     task automatic get_sb(output rb_row_t rb_d[39], output cb_row_t cb_d[8],
                           input frame_t rf, input frame_t cf,
@@ -268,6 +242,7 @@ module fs_control_unit_test;
 
         // 2. Pre-calculate expected SADs/MVs and store in exp_mb_q[b_idx]
         calc_expected_results(sb_rb, sb_cb, exp_mb_q[b_idx]);
+        $display("%p", exp_mb_q);
 
         // 3. Drive the 4 sub-blocks into the DUT
         for (int sb_idx = 0; sb_idx < 4; sb_idx++) begin
@@ -296,50 +271,6 @@ module fs_control_unit_test;
         int sad_16x8_cand[4];
         int sad_16x16_cand;
 
-        // --- DIAGNOSTIC FOR SUB-BLOCK 0 ---
-        begin
-            int min_lr0 = 'hffff, min_lr1 = 'hffff;
-            int min_tb0 = 'hffff, min_tb1 = 'hffff;
-            int min_rev_cb_lr0 = 'hffff, min_rev_cb_tb0 = 'hffff;
-
-            for (int dy = 0; dy < WINDOW_SIZE; dy++) begin
-                for (int dx = 0; dx < WINDOW_SIZE; dx++) begin
-                    int lr0 = 0, lr1 = 0;         // Left 4x8 (cols 0..3), Right 4x8 (cols 4..7)
-                    int tb0 = 0, tb1 = 0;         // Top 8x4 (rows 0..3), Bot 8x4 (rows 4..7)
-                    int rev_lr0 = 0, rev_tb0 = 0; // CB row-reversed (7-r) vs RB (dy+r)
-
-                    for (int r = 0; r < 8; r++) begin
-                        for (int c = 0; c < 8; c++) begin
-                            int d_norm = int'(sb_cb[0][r][c])   - int'(sb_rb[0][dy + r][dx + c]);
-                            int d_rev  = int'(sb_cb[0][7-r][c]) - int'(sb_rb[0][dy + r][dx + c]);
-                            int abs_norm = (d_norm < 0) ? -d_norm : d_norm;
-                            int abs_rev  = (d_rev  < 0) ? -d_rev  : d_rev;
-
-                            if (c < 4) lr0 += abs_norm; else lr1 += abs_norm;
-                            if (r < 4) tb0 += abs_norm; else tb1 += abs_norm;
-                            if (c < 4) rev_lr0 += abs_rev;
-                            if (r < 4) rev_tb0 += abs_rev;
-                        end
-                    end
-
-                    if (lr0 < min_lr0) min_lr0 = lr0;
-                    if (lr1 < min_lr1) min_lr1 = lr1;
-                    if (tb0 < min_tb0) min_tb0 = tb0;
-                    if (tb1 < min_tb1) min_tb1 = tb1;
-                    if (rev_lr0 < min_rev_cb_lr0) min_rev_cb_lr0 = rev_lr0;
-                    if (rev_tb0 < min_rev_cb_tb0) min_rev_cb_tb0 = rev_tb0;
-
-                    if (lr0 == 1606 || lr1 == 1606 || tb0 == 1606 || tb1 == 1606 || rev_lr0 == 1606 || rev_tb0 == 1606) begin
-                        $display("[FOUND 1606] at (dy=%0d, dx=%0d): lr0=%0d, lr1=%0d, tb0=%0d, tb1=%0d, rev_lr0=%0d, rev_tb0=%0d",
-                                 dy, dx, lr0, lr1, tb0, tb1, rev_lr0, rev_tb0);
-                    end
-                end
-            end
-            $display("[SB0 MINS] lr0=%0d, lr1=%0d | tb0(Top)=%0d, tb1(Bot)=%0d | rev_lr0=%0d, rev_tb0=%0d",
-                     min_lr0, min_lr1, min_tb0, min_tb1, min_rev_cb_lr0, min_rev_cb_tb0);
-        end
-        // --- END DIAGNOSTIC ---
-
         // 1. Initialize all minimum SADs to maximum all-1s
         for (int sb = 0; sb < 4; sb++) begin
             exp.min_8x4[sb][0] = '1;
@@ -349,36 +280,50 @@ module fs_control_unit_test;
         end
         exp.min_16x16 = '1;
 
-        // 2. Compute 8x4 (Left/Right) and 8x8 SADs for each sub-block in Morton order
+        // 2. Compute Left 4x8 (index 0), Right 4x8 (index 1), and 8x8 SADs per sub-block
         for (int sb = 0; sb < 4; sb++) begin
             for (int dy = 0; dy < WINDOW_SIZE; dy++) begin
                 for (int dx = 0; dx < WINDOW_SIZE; dx++) begin
-                    int sum_left  = 0;
-                    int sum_right = 0;
-                    int sum_8x8   = 0;
+                    int sum_left_4x8  = 0;
+                    int sum_right_4x8 = 0;
+                    int sum_8x8       = 0;
 
-                    for (int r = 0; r < 8; r++) begin
+                    // Upper 4x4 (rows 0..3) uses reference rows dy..dy+3
+                    for (int r = 0; r < 4; r++) begin
                         for (int c = 0; c < 4; c++) begin
-                            int diff_l = int'(sb_cb[sb][r][c])   - int'(sb_rb[sb][dy + r][dx + c]);
-                            int diff_r = int'(sb_cb[sb][r][c+4]) - int'(sb_rb[sb][dy + r][dx + c + 4]);
-                            sum_left  += (diff_l < 0) ? -diff_l : diff_l;
-                            sum_right += (diff_r < 0) ? -diff_r : diff_r;
+                            int d_ul = int'(sb_cb[sb][r][c])     - int'(sb_rb[sb][dy + r][dx + c]);
+                            int d_ur = int'(sb_cb[sb][r][c+4])   - int'(sb_rb[sb][dy + r][dx + c + 4]);
+                            sum_left_4x8  += (d_ul < 0) ? -d_ul : d_ul;
+                            sum_right_4x8 += (d_ur < 0) ? -d_ur : d_ur;
                         end
                     end
 
-                    sum_8x8 = sum_left + sum_right;
+                    // Lower 4x4 (rows 4..7) uses reference rows dy+4..dy+7
+                    for (int r = 4; r < 8; r++) begin
+                        for (int c = 0; c < 4; c++) begin
+                            int d_dl = int'(sb_cb[sb][r][c])     - int'(sb_rb[sb][dy + r][dx + c]);
+                            int d_dr = int'(sb_cb[sb][r][c+4])   - int'(sb_rb[sb][dy + r][dx + c + 4]);
+                            sum_left_4x8  += (d_dl < 0) ? -d_dl : d_dl;
+                            sum_right_4x8 += (d_dr < 0) ? -d_dr : d_dr;
+                        end
+                    end
+
+                    sum_8x8 = sum_left_4x8 + sum_right_4x8;
                     sad_8x8_grid[sb][dy][dx] = sum_8x8;
 
-                    if (sum_left < exp.min_8x4[sb][0]) begin
-                        exp.min_8x4[sb][0] = sum_left[SAD_8X4_W-1:0];
+                    // Left 4x8 (sad_8x4[0])
+                    if (sum_left_4x8 < exp.min_8x4[sb][0]) begin
+                        exp.min_8x4[sb][0] = sum_left_4x8[SAD_8X4_W-1:0];
                         exp.mv_8x4[sb][0]  = to_mv(dy, dx);
                     end
 
-                    if (sum_right < exp.min_8x4[sb][1]) begin
-                        exp.min_8x4[sb][1] = sum_right[SAD_8X4_W-1:0];
+                    // Right 4x8 (sad_8x4[1])
+                    if (sum_right_4x8 < exp.min_8x4[sb][1]) begin
+                        exp.min_8x4[sb][1] = sum_right_4x8[SAD_8X4_W-1:0];
                         exp.mv_8x4[sb][1]  = to_mv(dy, dx);
                     end
 
+                    // 8x8 Sub-block
                     if (sum_8x8 < exp.min_8x8[sb]) begin
                         exp.min_8x8[sb] = sum_8x8[SAD_8X8_W-1:0];
                         exp.mv_8x8[sb]  = to_mv(dy, dx);
@@ -390,10 +335,10 @@ module fs_control_unit_test;
         // 3. Combine 8x8 grids for 16x8 and 16x16 across the search window
         for (int dy = 0; dy < WINDOW_SIZE; dy++) begin
             for (int dx = 0; dx < WINDOW_SIZE; dx++) begin
-                sad_16x8_cand[0] = sad_8x8_grid[0][dy][dx] + sad_8x8_grid[1][dy][dx];
-                sad_16x8_cand[1] = sad_8x8_grid[0][dy][dx] + sad_8x8_grid[2][dy][dx];
-                sad_16x8_cand[2] = sad_8x8_grid[1][dy][dx] + sad_8x8_grid[3][dy][dx];
-                sad_16x8_cand[3] = sad_8x8_grid[2][dy][dx] + sad_8x8_grid[3][dy][dx];
+                sad_16x8_cand[0] = sad_8x8_grid[0][dy][dx] + sad_8x8_grid[1][dy][dx]; // Upper (UL + UR)
+                sad_16x8_cand[1] = sad_8x8_grid[0][dy][dx] + sad_8x8_grid[2][dy][dx]; // Left  (UL + DL)
+                sad_16x8_cand[2] = sad_8x8_grid[1][dy][dx] + sad_8x8_grid[3][dy][dx]; // Right (UR + DR)
+                sad_16x8_cand[3] = sad_8x8_grid[2][dy][dx] + sad_8x8_grid[3][dy][dx]; // Lower (DL + DR)
 
                 sad_16x16_cand   = sad_16x8_cand[0] + sad_16x8_cand[3];
 
@@ -411,93 +356,6 @@ module fs_control_unit_test;
             end
         end
     endfunction
-
-    // function automatic void calc_expected_results(
-    //     input  rb_row_t     sb_rb[4][39],
-    //     input  cb_row_t     sb_cb[4][8],
-    //     output mb_results_t exp
-    // );
-    //     int sad_8x8_grid[4][WINDOW_SIZE][WINDOW_SIZE];
-    //     int sad_16x8_cand[4];
-    //     int sad_16x16_cand;
-    //
-    //     // 1. Initialize all minimum SADs to maximum all-1s
-    //     for (int sb = 0; sb < 4; sb++) begin
-    //         exp.min_8x4[sb][0] = '1;
-    //         exp.min_8x4[sb][1] = '1;
-    //         exp.min_8x8[sb]    = '1;
-    //         exp.min_16x8[sb]   = '1;
-    //     end
-    //     exp.min_16x16 = '1;
-    //
-    //     // 2. Compute 8x4 (Left/Right) and 8x8 SADs for each sub-block in Morton order
-    //     for (int sb = 0; sb < 4; sb++) begin
-    //         for (int dy = 0; dy < WINDOW_SIZE; dy++) begin
-    //             for (int dx = 0; dx < WINDOW_SIZE; dx++) begin
-    //                 int sum_left  = 0;
-    //                 int sum_right = 0;
-    //                 int sum_8x8   = 0;
-    //
-    //                 for (int r = 0; r < 8; r++) begin
-    //                     // Leftmost 8x4 (cols 0..3) and Rightmost 8x4 (cols 4..7)
-    //                     for (int c = 0; c < 4; c++) begin
-    //                         int diff_l = int'(sb_cb[sb][r][c])   - int'(sb_rb[sb][dy + r][dx + c]);
-    //                         int diff_r = int'(sb_cb[sb][r][c+4]) - int'(sb_rb[sb][dy + r][dx + c + 4]);
-    //                         sum_left  += (diff_l < 0) ? -diff_l : diff_l;
-    //                         sum_right += (diff_r < 0) ? -diff_r : diff_r;
-    //                     end
-    //                 end
-    //
-    //                 sum_8x8 = sum_left + sum_right;
-    //                 sad_8x8_grid[sb][dy][dx] = sum_8x8;
-    //
-    //                 // Leftmost 8x4 (8x4[0])
-    //                 if (sum_left < exp.min_8x4[sb][0]) begin
-    //                     exp.min_8x4[sb][0] = sum_left[SAD_8X4_W-1:0];
-    //                     exp.mv_8x4[sb][0]  = to_mv(dy, dx);
-    //                 end
-    //
-    //                 // Rightmost 8x4 (8x4[1])
-    //                 if (sum_right < exp.min_8x4[sb][1]) begin
-    //                     exp.min_8x4[sb][1] = sum_right[SAD_8X4_W-1:0];
-    //                     exp.mv_8x4[sb][1]  = to_mv(dy, dx);
-    //                 end
-    //
-    //                 // 8x8 Sub-block
-    //                 if (sum_8x8 < exp.min_8x8[sb]) begin
-    //                     exp.min_8x8[sb] = sum_8x8[SAD_8X8_W-1:0];
-    //                     exp.mv_8x8[sb]  = to_mv(dy, dx);
-    //                 end
-    //             end
-    //         end
-    //     end
-    //
-    //     // 3. Combine 8x8 grids for 16x8 and 16x16 across the search window
-    //     // Sub-block Morton indices: 0 = UL, 1 = UR, 2 = DL, 3 = DR
-    //     for (int dy = 0; dy < WINDOW_SIZE; dy++) begin
-    //         for (int dx = 0; dx < WINDOW_SIZE; dx++) begin
-    //             // Ordered: 0: Upper, 1: Left, 2: Right, 3: Lower
-    //             sad_16x8_cand[0] = sad_8x8_grid[0][dy][dx] + sad_8x8_grid[1][dy][dx]; // Upper (UL + UR)
-    //             sad_16x8_cand[1] = sad_8x8_grid[0][dy][dx] + sad_8x8_grid[2][dy][dx]; // Left  (UL + DL)
-    //             sad_16x8_cand[2] = sad_8x8_grid[1][dy][dx] + sad_8x8_grid[3][dy][dx]; // Right (UR + DR)
-    //             sad_16x8_cand[3] = sad_8x8_grid[2][dy][dx] + sad_8x8_grid[3][dy][dx]; // Lower (DL + DR)
-    //
-    //             sad_16x16_cand   = sad_16x8_cand[0] + sad_16x8_cand[3];               // Full 16x16
-    //
-    //             for (int p = 0; p < 4; p++) begin
-    //                 if (sad_16x8_cand[p] < exp.min_16x8[p]) begin
-    //                     exp.min_16x8[p] = sad_16x8_cand[p][SAD_16X8_W-1:0];
-    //                     exp.mv_16x8[p]  = to_mv(dy, dx);
-    //                 end
-    //             end
-    //
-    //             if (sad_16x16_cand < exp.min_16x16) begin
-    //                 exp.min_16x16 = sad_16x16_cand[SAD_16X16_W-1:0];
-    //                 exp.mv_16x16  = to_mv(dy, dx);
-    //             end
-    //         end
-    //     end
-    // endfunction
 
     // ------------------------------------------------------------------
     // svunit scaffolding
