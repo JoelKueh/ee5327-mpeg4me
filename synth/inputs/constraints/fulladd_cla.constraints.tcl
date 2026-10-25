@@ -1,0 +1,10 @@
+# Clock Definition
+create_clock -name CLK -period 1
+
+# Input Constraints
+set_driving_cell -lib_cell BUFFD2BWP20P90 -input_transition_rise 0.1 -input_transition_fall 0.1 [all_inputs]
+set_input_delay 0.08 -clock [get_clocks CLK] [all_inputs]
+
+# Output Constraints
+set_load [load_of [get_lib_pins */BUFFD2BWP20P90/I]] [all_outputs]
+set_output_delay 0.12 -clock [get_clocks CLK] [all_outputs]

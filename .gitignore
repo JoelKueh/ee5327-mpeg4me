@@ -19,3 +19,8 @@ DVEfiles/
 ucf.dir/
 vc_hdrs.h
 vcs.log
+
+synth/*
+!synth/lib
+!synth/inputs
+!synth/scripts

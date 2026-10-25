@@ -1,0 +1,55 @@
+ 
+                             Library Compiler (TM)
+                                 DesignWare (R)
+
+             Version U-2022.12-SP6 for linux64 - Aug 08, 2023 -SLE
+
+                    Copyright (c) 1988 - 2023 Synopsys, Inc.
+   This software and the associated documentation are proprietary to Synopsys,
+ Inc. This software may only be used in accordance with the terms and conditions
+ of a written license agreement with Synopsys, Inc. All other use, reproduction,
+   or distribution of this software is strictly prohibited.  Licensed Products
+     communicate with Synopsys servers for the purpose of providing software
+    updates, detecting software piracy and verifying that customers are using
+    Licensed Products in conformity with the applicable License Key for such
+  Licensed Products. Synopsys will use information gathered in connection with
+    this process to deliver software updates and pursue software pirates and
+                                   infringers.
+
+ Inclusivity & Diversity - Visit SolvNetPlus to read the "Synopsys Statement on
+            Inclusivity and Diversity" (Refer to article 000036315 at
+                        https://solvnetplus.synopsys.com)
+
+Initializing...
+Reading '/home/kuehn348/src/ee5327/ee5327-mpeg4me/synth/lib/sram_macros.lib' ...
+Warning: Line 1, The 'default_fanout_load' attribute is not specified. Using 1.00. (LBDB-172)
+Warning: Line 1, The 'default_inout_pin_cap' attribute is not specified. Using 1.00. (LBDB-172)
+Warning: Line 1, The 'default_input_pin_cap' attribute is not specified. Using 1.00. (LBDB-172)
+Warning: Line 1, The 'default_output_pin_cap' attribute is not specified. Using 0.00. (LBDB-172)
+Warning: Line 23, The 'index_1' attribute has size 1, which is not 
+        used for any purpose with its associated variable. (LBDB-275)
+Warning: Line 27, The 'index_1' attribute has size 1, which is not 
+        used for any purpose with its associated variable. (LBDB-275)
+Warning: Line 1, The attribute 'slew_lower_threshold_pct_rise' is not specified. (LBDB-605)
+Warning: Line 1, The attribute 'slew_upper_threshold_pct_rise' is not specified. (LBDB-605)
+Warning: Line 1, The attribute 'slew_lower_threshold_pct_fall' is not specified. (LBDB-605)
+Warning: Line 1, The attribute 'slew_upper_threshold_pct_fall' is not specified. (LBDB-605)
+Warning: Line 1, The attribute 'input_threshold_pct_rise' is not specified. (LBDB-605)
+Warning: Line 1, The attribute 'output_threshold_pct_rise' is not specified. (LBDB-605)
+Warning: Line 1, The attribute 'input_threshold_pct_fall' is not specified. (LBDB-605)
+Warning: Line 1, The attribute 'output_threshold_pct_fall' is not specified. (LBDB-605)
+Warning: Line 72, Cell 'sram_32x384', pin 'RDATA[383]', The 'RDATA[383]' Pin/bus on the 'sram_32x384' cell has no 'function' attribute.
+        The cell becomes a black box. (LIBG-16)
+Warning: Line 119, Cell 'sram_32x416', pin 'RDATA[415]', The 'RDATA[415]' Pin/bus on the 'sram_32x416' cell has no 'function' attribute.
+        The cell becomes a black box. (LIBG-16)
+Warning: Line 166, Cell 'sram_32x448', pin 'RDATA[447]', The 'RDATA[447]' Pin/bus on the 'sram_32x448' cell has no 'function' attribute.
+        The cell becomes a black box. (LIBG-16)
+Warning: Line 213, Cell 'sram_32x480', pin 'RDATA[479]', The 'RDATA[479]' Pin/bus on the 'sram_32x480' cell has no 'function' attribute.
+        The cell becomes a black box. (LIBG-16)
+Technology library 'sram_macros_lib' read successfully
+Wrote the 'sram_macros_lib' library to '/home/kuehn348/src/ee5327/ee5327-mpeg4me/synth/lib/sram_macros.db' successfully
+Maximum memory usage for this session: 141.14 MB
+CPU usage for this session:      2 seconds (  0.00 hours)
+Elapsed time for this session:      5 seconds (  0.00 hours)
+Thank you for using Library Compiler.
+

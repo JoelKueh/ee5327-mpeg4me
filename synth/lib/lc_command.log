@@ -1,0 +1,7 @@
+#@ # 
+#@ # Running lc_shell Version U-2022.12-SP6 for linux64 -- Aug 08, 2023
+#@ # Date:   Sun Oct 25 13:10:48 2026
+#@ # Run by: kuehn348@ece-kh2120-32.ece.umn.edu
+#@ 
+
+read_lib sram_macros.lib; write_lib sram_macros_lib -format db -output sram_macros.db; exit

@@ -1,0 +1,224 @@
+library (sram_macros_lib) {
+    delay_model : table_lookup;
+    time_unit : "1ns";
+    voltage_unit : "1V";
+    current_unit : "1mA";
+    pulling_resistance_unit : "1kohm";
+    leakage_power_unit : "1nW";
+    capacitive_load_unit (1, pf);
+
+    nom_process : 1.0;
+    nom_temperature : 25.0;
+    nom_voltage : 0.8;
+
+    operating_conditions (tt0p8v25c) {
+        process : 1.0;
+        temperature : 25.0;
+        voltage : 0.8;
+    }
+    default_operating_conditions : tt0p8v25c;
+
+    lu_table_template (scalar_template) {
+        variable_1 : total_output_net_capacitance;
+        index_1 ("0.01");
+    }
+    lu_table_template (constraint_template) {
+        variable_1 : constrained_pin_transition;
+        index_1 ("0.01");
+    }
+
+    /* Bus definitions for ADDR_W=5 and DATA_W={384, 416, 448, 480} */
+    type (bus_5)   { base_type : array; data_type : bit; bit_width : 5;   bit_from : 4;   bit_to : 0; }
+    type (bus_384) { base_type : array; data_type : bit; bit_width : 384; bit_from : 383; bit_to : 0; }
+    type (bus_416) { base_type : array; data_type : bit; bit_width : 416; bit_from : 415; bit_to : 0; }
+    type (bus_448) { base_type : array; data_type : bit; bit_width : 448; bit_from : 447; bit_to : 0; }
+    type (bus_480) { base_type : array; data_type : bit; bit_width : 480; bit_from : 479; bit_to : 0; }
+
+    /* =================================================================
+       1. sram_32x384 (ADDR_W=5, DATA_W=384)
+       ================================================================= */
+    cell (sram_32x384) {
+        area : 1800.0;
+        is_macro_cell : true;
+        dont_touch : true;
+        dont_use : true;
+
+        pin (CLK) { direction : input; clock : true; capacitance : 0.005; }
+        pin (WEN) {
+            direction : input; capacitance : 0.002;
+            timing () { related_pin : "CLK"; timing_type : setup_rising; rise_constraint (constraint_template) { values ("0.10"); } fall_constraint (constraint_template) { values ("0.10"); } }
+            timing () { related_pin : "CLK"; timing_type : hold_rising;  rise_constraint (constraint_template) { values ("0.02"); } fall_constraint (constraint_template) { values ("0.02"); } }
+        }
+        pin (REN) {
+            direction : input; capacitance : 0.002;
+            timing () { related_pin : "CLK"; timing_type : setup_rising; rise_constraint (constraint_template) { values ("0.10"); } fall_constraint (constraint_template) { values ("0.10"); } }
+            timing () { related_pin : "CLK"; timing_type : hold_rising;  rise_constraint (constraint_template) { values ("0.02"); } fall_constraint (constraint_template) { values ("0.02"); } }
+        }
+        bus (WADDR) {
+            bus_type : bus_5; direction : input; capacitance : 0.002;
+            timing () { related_pin : "CLK"; timing_type : setup_rising; rise_constraint (constraint_template) { values ("0.10"); } fall_constraint (constraint_template) { values ("0.10"); } }
+            timing () { related_pin : "CLK"; timing_type : hold_rising;  rise_constraint (constraint_template) { values ("0.02"); } fall_constraint (constraint_template) { values ("0.02"); } }
+        }
+        bus (RADDR) {
+            bus_type : bus_5; direction : input; capacitance : 0.002;
+            timing () { related_pin : "CLK"; timing_type : setup_rising; rise_constraint (constraint_template) { values ("0.10"); } fall_constraint (constraint_template) { values ("0.10"); } }
+            timing () { related_pin : "CLK"; timing_type : hold_rising;  rise_constraint (constraint_template) { values ("0.02"); } fall_constraint (constraint_template) { values ("0.02"); } }
+        }
+        bus (WDATA) {
+            bus_type : bus_384; direction : input; capacitance : 0.002;
+            timing () { related_pin : "CLK"; timing_type : setup_rising; rise_constraint (constraint_template) { values ("0.08"); } fall_constraint (constraint_template) { values ("0.08"); } }
+            timing () { related_pin : "CLK"; timing_type : hold_rising;  rise_constraint (constraint_template) { values ("0.02"); } fall_constraint (constraint_template) { values ("0.02"); } }
+        }
+        bus (RDATA) {
+            bus_type : bus_384; direction : output; max_capacitance : 0.100;
+            timing () {
+                related_pin : "CLK"; timing_type : rising_edge; timing_sense : non_unate;
+                cell_rise (scalar_template) { values ("0.20"); }
+                cell_fall (scalar_template) { values ("0.20"); }
+                rise_transition (scalar_template) { values ("0.04"); }
+                fall_transition (scalar_template) { values ("0.04"); }
+            }
+        }
+    }
+
+    /* =================================================================
+       2. sram_32x416 (ADDR_W=5, DATA_W=416)
+       ================================================================= */
+    cell (sram_32x416) {
+        area : 1950.0;
+        is_macro_cell : true;
+        dont_touch : true;
+        dont_use : true;
+
+        pin (CLK) { direction : input; clock : true; capacitance : 0.005; }
+        pin (WEN) {
+            direction : input; capacitance : 0.002;
+            timing () { related_pin : "CLK"; timing_type : setup_rising; rise_constraint (constraint_template) { values ("0.10"); } fall_constraint (constraint_template) { values ("0.10"); } }
+            timing () { related_pin : "CLK"; timing_type : hold_rising;  rise_constraint (constraint_template) { values ("0.02"); } fall_constraint (constraint_template) { values ("0.02"); } }
+        }
+        pin (REN) {
+            direction : input; capacitance : 0.002;
+            timing () { related_pin : "CLK"; timing_type : setup_rising; rise_constraint (constraint_template) { values ("0.10"); } fall_constraint (constraint_template) { values ("0.10"); } }
+            timing () { related_pin : "CLK"; timing_type : hold_rising;  rise_constraint (constraint_template) { values ("0.02"); } fall_constraint (constraint_template) { values ("0.02"); } }
+        }
+        bus (WADDR) {
+            bus_type : bus_5; direction : input; capacitance : 0.002;
+            timing () { related_pin : "CLK"; timing_type : setup_rising; rise_constraint (constraint_template) { values ("0.10"); } fall_constraint (constraint_template) { values ("0.10"); } }
+            timing () { related_pin : "CLK"; timing_type : hold_rising;  rise_constraint (constraint_template) { values ("0.02"); } fall_constraint (constraint_template) { values ("0.02"); } }
+        }
+        bus (RADDR) {
+            bus_type : bus_5; direction : input; capacitance : 0.002;
+            timing () { related_pin : "CLK"; timing_type : setup_rising; rise_constraint (constraint_template) { values ("0.10"); } fall_constraint (constraint_template) { values ("0.10"); } }
+            timing () { related_pin : "CLK"; timing_type : hold_rising;  rise_constraint (constraint_template) { values ("0.02"); } fall_constraint (constraint_template) { values ("0.02"); } }
+        }
+        bus (WDATA) {
+            bus_type : bus_416; direction : input; capacitance : 0.002;
+            timing () { related_pin : "CLK"; timing_type : setup_rising; rise_constraint (constraint_template) { values ("0.08"); } fall_constraint (constraint_template) { values ("0.08"); } }
+            timing () { related_pin : "CLK"; timing_type : hold_rising;  rise_constraint (constraint_template) { values ("0.02"); } fall_constraint (constraint_template) { values ("0.02"); } }
+        }
+        bus (RDATA) {
+            bus_type : bus_416; direction : output; max_capacitance : 0.100;
+            timing () {
+                related_pin : "CLK"; timing_type : rising_edge; timing_sense : non_unate;
+                cell_rise (scalar_template) { values ("0.20"); }
+                cell_fall (scalar_template) { values ("0.20"); }
+                rise_transition (scalar_template) { values ("0.04"); }
+                fall_transition (scalar_template) { values ("0.04"); }
+            }
+        }
+    }
+
+    /* =================================================================
+       3. sram_32x448 (ADDR_W=5, DATA_W=448)
+       ================================================================= */
+    cell (sram_32x448) {
+        area : 2100.0;
+        is_macro_cell : true;
+        dont_touch : true;
+        dont_use : true;
+
+        pin (CLK) { direction : input; clock : true; capacitance : 0.005; }
+        pin (WEN) {
+            direction : input; capacitance : 0.002;
+            timing () { related_pin : "CLK"; timing_type : setup_rising; rise_constraint (constraint_template) { values ("0.10"); } fall_constraint (constraint_template) { values ("0.10"); } }
+            timing () { related_pin : "CLK"; timing_type : hold_rising;  rise_constraint (constraint_template) { values ("0.02"); } fall_constraint (constraint_template) { values ("0.02"); } }
+        }
+        pin (REN) {
+            direction : input; capacitance : 0.002;
+            timing () { related_pin : "CLK"; timing_type : setup_rising; rise_constraint (constraint_template) { values ("0.10"); } fall_constraint (constraint_template) { values ("0.10"); } }
+            timing () { related_pin : "CLK"; timing_type : hold_rising;  rise_constraint (constraint_template) { values ("0.02"); } fall_constraint (constraint_template) { values ("0.02"); } }
+        }
+        bus (WADDR) {
+            bus_type : bus_5; direction : input; capacitance : 0.002;
+            timing () { related_pin : "CLK"; timing_type : setup_rising; rise_constraint (constraint_template) { values ("0.10"); } fall_constraint (constraint_template) { values ("0.10"); } }
+            timing () { related_pin : "CLK"; timing_type : hold_rising;  rise_constraint (constraint_template) { values ("0.02"); } fall_constraint (constraint_template) { values ("0.02"); } }
+        }
+        bus (RADDR) {
+            bus_type : bus_5; direction : input; capacitance : 0.002;
+            timing () { related_pin : "CLK"; timing_type : setup_rising; rise_constraint (constraint_template) { values ("0.10"); } fall_constraint (constraint_template) { values ("0.10"); } }
+            timing () { related_pin : "CLK"; timing_type : hold_rising;  rise_constraint (constraint_template) { values ("0.02"); } fall_constraint (constraint_template) { values ("0.02"); } }
+        }
+        bus (WDATA) {
+            bus_type : bus_448; direction : input; capacitance : 0.002;
+            timing () { related_pin : "CLK"; timing_type : setup_rising; rise_constraint (constraint_template) { values ("0.08"); } fall_constraint (constraint_template) { values ("0.08"); } }
+            timing () { related_pin : "CLK"; timing_type : hold_rising;  rise_constraint (constraint_template) { values ("0.02"); } fall_constraint (constraint_template) { values ("0.02"); } }
+        }
+        bus (RDATA) {
+            bus_type : bus_448; direction : output; max_capacitance : 0.100;
+            timing () {
+                related_pin : "CLK"; timing_type : rising_edge; timing_sense : non_unate;
+                cell_rise (scalar_template) { values ("0.20"); }
+                cell_fall (scalar_template) { values ("0.20"); }
+                rise_transition (scalar_template) { values ("0.04"); }
+                fall_transition (scalar_template) { values ("0.04"); }
+            }
+        }
+    }
+
+    /* =================================================================
+       4. sram_32x480 (ADDR_W=5, DATA_W=480)
+       ================================================================= */
+    cell (sram_32x480) {
+        area : 2250.0;
+        is_macro_cell : true;
+        dont_touch : true;
+        dont_use : true;
+
+        pin (CLK) { direction : input; clock : true; capacitance : 0.005; }
+        pin (WEN) {
+            direction : input; capacitance : 0.002;
+            timing () { related_pin : "CLK"; timing_type : setup_rising; rise_constraint (constraint_template) { values ("0.10"); } fall_constraint (constraint_template) { values ("0.10"); } }
+            timing () { related_pin : "CLK"; timing_type : hold_rising;  rise_constraint (constraint_template) { values ("0.02"); } fall_constraint (constraint_template) { values ("0.02"); } }
+        }
+        pin (REN) {
+            direction : input; capacitance : 0.002;
+            timing () { related_pin : "CLK"; timing_type : setup_rising; rise_constraint (constraint_template) { values ("0.10"); } fall_constraint (constraint_template) { values ("0.10"); } }
+            timing () { related_pin : "CLK"; timing_type : hold_rising;  rise_constraint (constraint_template) { values ("0.02"); } fall_constraint (constraint_template) { values ("0.02"); } }
+        }
+        bus (WADDR) {
+            bus_type : bus_5; direction : input; capacitance : 0.002;
+            timing () { related_pin : "CLK"; timing_type : setup_rising; rise_constraint (constraint_template) { values ("0.10"); } fall_constraint (constraint_template) { values ("0.10"); } }
+            timing () { related_pin : "CLK"; timing_type : hold_rising;  rise_constraint (constraint_template) { values ("0.02"); } fall_constraint (constraint_template) { values ("0.02"); } }
+        }
+        bus (RADDR) {
+            bus_type : bus_5; direction : input; capacitance : 0.002;
+            timing () { related_pin : "CLK"; timing_type : setup_rising; rise_constraint (constraint_template) { values ("0.10"); } fall_constraint (constraint_template) { values ("0.10"); } }
+            timing () { related_pin : "CLK"; timing_type : hold_rising;  rise_constraint (constraint_template) { values ("0.02"); } fall_constraint (constraint_template) { values ("0.02"); } }
+        }
+        bus (WDATA) {
+            bus_type : bus_480; direction : input; capacitance : 0.002;
+            timing () { related_pin : "CLK"; timing_type : setup_rising; rise_constraint (constraint_template) { values ("0.08"); } fall_constraint (constraint_template) { values ("0.08"); } }
+            timing () { related_pin : "CLK"; timing_type : hold_rising;  rise_constraint (constraint_template) { values ("0.02"); } fall_constraint (constraint_template) { values ("0.02"); } }
+        }
+        bus (RDATA) {
+            bus_type : bus_480; direction : output; max_capacitance : 0.100;
+            timing () {
+                related_pin : "CLK"; timing_type : rising_edge; timing_sense : non_unate;
+                cell_rise (scalar_template) { values ("0.20"); }
+                cell_fall (scalar_template) { values ("0.20"); }
+                rise_transition (scalar_template) { values ("0.04"); }
+                fall_transition (scalar_template) { values ("0.04"); }
+            }
+        }
+    }
+}
