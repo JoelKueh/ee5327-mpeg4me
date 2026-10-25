@@ -75,9 +75,9 @@ module fs_computer (
     always_comb begin
         rb_sr_d = rb_sr_q;
         sad_sw_idx_d[0] = rb_row_idx - 7;
-        sad_sw_idx_d[1] = sad_sw_idx_d[0];
+        sad_sw_idx_d[1] = sad_sw_idx_q[0];
         sad_valid_d[0] = rb_row_idx >= 7 && bd_valid;
-        sad_valid_d[1] = sad_valid_d[0];
+        sad_valid_d[1] = sad_valid_q[0];
 
         // Compute the 8x4 and 8x8 results in one cycle
         for (int row = 0; row < WINDOW_SIZE; row++) begin

@@ -33,8 +33,7 @@ module fs_control (
 
     // Current row and current subblock trackers
     logic [RB_ROW_IDX_W-1:0] rb_row_idx_q, rb_row_idx_d;
-    logic [1:0] sb_idx_8x8_q, sb_idx_8x8_d;
-    logic [1:0] sb_idx_16x8;
+    logic [1:0] sb_idx_8x8_q[2], sb_idx_8x8_d[2]; // Add an extra buffer cycle for computer delay.
     logic [1:0] sb_idx_16x16;
 
     // Valid output of the different SAD engines
@@ -90,7 +89,10 @@ module fs_control (
     mv_t result_mv_16x16;
 
     logic clear_q, clear_d;
-    logic comb_clear_out;
+    logic comb_clear_out;  // Clear output of the combiner.
+    
+    // Output results valid signal
+    logic results_valid_q, results_valid_d;
 
     // Computer - Computes fisrt level SAD results from the RB stream
     fs_computer computer (
@@ -115,7 +117,7 @@ module fs_control (
 
         .sad_8x8_valid(sad_8x8_valid),
         .sad_8x8_last(sw_idx_8x8 == 31),
-        .sb_idx_8x8(sb_idx_8x8_q),
+        .sb_idx_8x8(sb_idx_8x8_q[1]),
         .sw_idx_8x8(sw_idx_8x8),
         .sad_8x8(sad_8x8),
 
@@ -234,7 +236,8 @@ module fs_control (
 
             // Update the row index, then the subblock index if necessary.
             rb_row_idx_d = rb_row_idx_q == 38 ? 0 : rb_row_idx_q + 1;
-            if (rb_row_idx_d == 0) sb_idx_8x8_d = sb_idx_8x8_q + 1;
+            if (rb_row_idx_d == 0) sb_idx_8x8_d[0] = sb_idx_8x8_q[0] + 1;
+            sb_idx_8x8_d[1] = sb_idx_8x8_q[0];
         end
 
         // Handshake and buffer data from the stream.
@@ -261,18 +264,18 @@ module fs_control (
         mv_16x16_d  = mv_16x16_q;
 
         if (result_8x4_valid[0]) begin
-            min_8x4_d[2*(sb_idx_8x8_q-1)] = result_min_8x4[0];
-            mv_8x4_d[2*(sb_idx_8x8_q-1)]  = result_mv_8x4[0];
+            min_8x4_d[2*(sb_idx_8x8_q[0]-1)] = result_min_8x4[0];
+            mv_8x4_d[2*(sb_idx_8x8_q[0]-1)]  = result_mv_8x4[0];
         end
 
         if (result_8x4_valid[1]) begin
-            min_8x4_d[2*(sb_idx_8x8_q-1)+1] = result_min_8x4[1];
-            mv_8x4_d[2*(sb_idx_8x8_q-1)+1]  = result_mv_8x4[1];
+            min_8x4_d[2*(sb_idx_8x8_q[0]-1)+1] = result_min_8x4[1];
+            mv_8x4_d[2*(sb_idx_8x8_q[0]-1)+1]  = result_mv_8x4[1];
         end
 
         if (result_8x8_valid) begin
-            min_8x8_d[sb_idx_8x8_q-1] = result_min_8x8;
-            mv_8x8_d[sb_idx_8x8_q-1]  = result_mv_8x8;
+            min_8x8_d[sb_idx_8x8_q[0]-1] = result_min_8x8;
+            mv_8x8_d[sb_idx_8x8_q[0]-1]  = result_mv_8x8;
         end
 
         if (result_16x8_valid) begin
@@ -300,6 +303,8 @@ module fs_control (
             min_16x16_d = result_min_16x16;
             mv_16x16_d  = result_mv_16x16;
         end
+
+        results_valid_d = result_16x8_valid && sb_idx_8x8_q[1] == 2'b1;
     end
 
     always_ff @(posedge clk) begin
@@ -310,7 +315,7 @@ module fs_control (
             cb_has_data_q <= '0;
 
             rb_row_idx_q <= '0;
-            sb_idx_8x8_q <= '0;
+            for (int i = 0; i < 2; i++) sb_idx_8x8_q[i] <= '0;
 
             for (int i = 0; i < 8; i++) min_8x4_q[i] <= '0;
             for (int i = 0; i < 4; i++) min_8x8_q[i] <= '0;
@@ -323,6 +328,8 @@ module fs_control (
             for (int i = 0; i < 2; i++) mv_8x16_q[i] <= '{default: '0};
             for (int i = 0; i < 2; i++) mv_16x8_q[i] <= '{default: '0};
             mv_16x16_q <= '{default: '0};
+
+            results_valid_q <= '0;
         end else begin
             rb_q <= rb_d;
             rb_has_data_q <= rb_has_data_d;
@@ -342,6 +349,8 @@ module fs_control (
             mv_16x8_q <= mv_16x8_d;
             min_16x16_q <= min_16x16_d;
             mv_16x16_q <= mv_16x16_d;
+
+            results_valid_q <= results_valid_d;
         end
 
         clear_q <= clear_d;
@@ -364,7 +373,7 @@ module fs_control (
         results.mv_16x8 = mv_16x8_q;
         results.mv_16x16 = mv_16x16_q;
 
-        results.valid = result_16x16_valid;
+        results.valid = results_valid_q;
     end
 
 endmodule

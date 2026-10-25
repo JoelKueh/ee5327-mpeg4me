@@ -32,6 +32,8 @@ module fs_control_unit_test;
     fs_control dut (.*);
 
     initial begin
+        $fsdbDumpfile("dump.fsdb");
+        $fsdbDumpvars(0, fs_control_unit_test, "+mda", "+all");
         clk   = 0;
         forever #5 clk = ~clk;
     end
@@ -126,6 +128,7 @@ module fs_control_unit_test;
         clear = 1;
         #20 clear = 0;
 
+        drive_subblock(rb_d, cb_d);
         drive_subblock(rb_d, cb_d);
         drive_subblock(rb_d, cb_d);
         drive_subblock(rb_d, cb_d);
