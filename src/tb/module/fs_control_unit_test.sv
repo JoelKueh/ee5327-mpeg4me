@@ -81,7 +81,15 @@ module fs_control_unit_test;
     // On-the-Fly 5-Stream Checker
     // ------------------------------------------------------------------
 
+    // ------------------------------------------------------------------
+    // On-the-Fly 5-Stream Checker
+    // ------------------------------------------------------------------
+
     always @(posedge clk) begin
+        int b_idx;
+        int sb_idx;
+        int p_idx;
+
         if (clear) begin
             cnt_8x4_0 <= 0;
             cnt_8x4_1 <= 0;
@@ -91,18 +99,8 @@ module fs_control_unit_test;
         end else begin
             // Stream 1: Leftmost 8x4 (8x4[0]) in Morton order
             if (result_8x4_valid[0]) begin
-                int b_idx  = cnt_8x4_0 / 4;
-                int sb_idx = cnt_8x4_0 % 4;
-                if (result_min_8x4[0] !== exp_mb_q[b_idx].min_8x4[sb_idx][0]) begin
-                    $display("\n[DEBUG @ %0t] 8x4[0] MISMATCH (b_idx=%0d, sb_idx=%0d):", $time, b_idx, sb_idx);
-                    $display("  DUT: min_sad = %0d (0x%h), mv = 0x%h (hi5=%0d, lo5=%0d)",
-                             result_min_8x4[0], result_min_8x4[0], result_mv_8x4[0],
-                             result_mv_8x4[0][9:5], result_mv_8x4[0][4:0]);
-                    $display("  EXP[0] (cols 0..3): min_sad = %0d, mv = 0x%h",
-                             exp_mb_q[b_idx].min_8x4[sb_idx][0], exp_mb_q[b_idx].min_8x4[sb_idx][0]);
-                    $display("  EXP[1] (cols 4..7): min_sad = %0d, mv = 0x%h",
-                             exp_mb_q[b_idx].min_8x4[sb_idx][1], exp_mb_q[b_idx].min_8x4[sb_idx][1]);
-                end
+                b_idx  = cnt_8x4_0 / 4;
+                sb_idx = cnt_8x4_0 % 4;
                 `FAIL_UNLESS_EQUAL(result_min_8x4[0], exp_mb_q[b_idx].min_8x4[sb_idx][0])
                 `FAIL_UNLESS_EQUAL(result_mv_8x4[0],  exp_mb_q[b_idx].mv_8x4[sb_idx][0])
                 cnt_8x4_0 <= cnt_8x4_0 + 1;
@@ -110,8 +108,8 @@ module fs_control_unit_test;
 
             // Stream 2: Rightmost 8x4 (8x4[1]) in Morton order
             if (result_8x4_valid[1]) begin
-                int b_idx  = cnt_8x4_1 / 4;
-                int sb_idx = cnt_8x4_1 % 4;
+                b_idx  = cnt_8x4_1 / 4;
+                sb_idx = cnt_8x4_1 % 4;
                 `FAIL_UNLESS_EQUAL(result_min_8x4[1], exp_mb_q[b_idx].min_8x4[sb_idx][1])
                 `FAIL_UNLESS_EQUAL(result_mv_8x4[1],  exp_mb_q[b_idx].mv_8x4[sb_idx][1])
                 cnt_8x4_1 <= cnt_8x4_1 + 1;
@@ -119,8 +117,8 @@ module fs_control_unit_test;
 
             // Stream 3: 8x8 in Morton order
             if (result_8x8_valid) begin
-                int b_idx  = cnt_8x8 / 4;
-                int sb_idx = cnt_8x8 % 4;
+                b_idx  = cnt_8x8 / 4;
+                sb_idx = cnt_8x8 % 4;
                 `FAIL_UNLESS_EQUAL(result_min_8x8, exp_mb_q[b_idx].min_8x8[sb_idx])
                 `FAIL_UNLESS_EQUAL(result_mv_8x8,  exp_mb_q[b_idx].mv_8x8[sb_idx])
                 cnt_8x8 <= cnt_8x8 + 1;
@@ -128,8 +126,8 @@ module fs_control_unit_test;
 
             // Stream 4: 16x8 in order (0: Upper, 1: Left, 2: Right, 3: Lower)
             if (result_16x8_valid) begin
-                int b_idx = cnt_16x8 / 4;
-                int p_idx = cnt_16x8 % 4;
+                b_idx = cnt_16x8 / 4;
+                p_idx = cnt_16x8 % 4;
                 `FAIL_UNLESS_EQUAL(result_min_16x8, exp_mb_q[b_idx].min_16x8[p_idx])
                 `FAIL_UNLESS_EQUAL(result_mv_16x8,  exp_mb_q[b_idx].mv_16x8[p_idx])
                 cnt_16x8 <= cnt_16x8 + 1;
@@ -137,15 +135,7 @@ module fs_control_unit_test;
 
             // Stream 5: 16x16
             if (result_16x16_valid) begin
-                int b_idx = cnt_16x16;
-                if (result_min_16x16 !== exp_mb_q[b_idx].min_16x16) begin
-                    $display("\n[DEBUG @ %0t] 16x16[0] MISMATCH (b_idx=%0d):", $time, b_idx);
-                    $display("  DUT: min_sad = %0d (0x%h), mv = 0x%h (hi5=%0d, lo5=%0d)",
-                             result_min_16x16, result_min_16x16, result_mv_16x16,
-                             result_mv_16x16[9:5], result_mv_16x16[4:0]);
-                    $display("  EXP: min_sad = %0d, mv = 0x%h",
-                             exp_mb_q[b_idx].min_16x16, exp_mb_q[b_idx].min_16x16);
-                end
+                b_idx = cnt_16x16;
                 `FAIL_UNLESS_EQUAL(result_min_16x16, exp_mb_q[b_idx].min_16x16)
                 `FAIL_UNLESS_EQUAL(result_mv_16x16,  exp_mb_q[b_idx].mv_16x16)
                 cnt_16x16 <= cnt_16x16 + 1;
@@ -242,7 +232,7 @@ module fs_control_unit_test;
 
         // 2. Pre-calculate expected SADs/MVs and store in exp_mb_q[b_idx]
         calc_expected_results(sb_rb, sb_cb, exp_mb_q[b_idx]);
-        $display("%p", exp_mb_q);
+        // $display("%p", exp_mb_q);
 
         // 3. Drive the 4 sub-blocks into the DUT
         for (int sb_idx = 0; sb_idx < 4; sb_idx++) begin
@@ -396,51 +386,11 @@ module fs_control_unit_test;
         // Outer loop: left-to-right along rows (b_idx = 0, 1, 2, ...)
         // Inner loop (inside drive_block): sb_idx = 0 (UL), 1 (UR), 2 (DL), 3 (DR)
         for (int b_idx = 0; b_idx < num_blocks_to_test; b_idx++) begin
+            $display("driving block: %d", b_idx);
             drive_block(rf, cf, b_idx);
         end
     `SVTEST_END
 
     `SVUNIT_TESTS_END
-        //
-        // if (result_8x4_valid[0]) begin
-        //     min_8x4_d[2*(sb_idx_8x8_q[0]-1)] = result_min_8x4[0];
-        //     mv_8x4_d[2*(sb_idx_8x8_q[0]-1)]  = result_mv_8x4[0];
-        // end
-        //
-        // if (result_8x4_valid[1]) begin
-        //     min_8x4_d[2*(sb_idx_8x8_q[0]-1)+1] = result_min_8x4[1];
-        //     mv_8x4_d[2*(sb_idx_8x8_q[0]-1)+1]  = result_mv_8x4[1];
-        // end
-        //
-        // if (result_8x8_valid) begin
-        //     min_8x8_d[sb_idx_8x8_q[0]-1] = result_min_8x8;
-        //     mv_8x8_d[sb_idx_8x8_q[0]-1]  = result_mv_8x8;
-        // end
-        //
-        // if (result_16x8_valid) begin
-        //     case (sad_16x8_id)
-        //         SAD_LXS_0: begin
-        //             min_16x8_d[0] = result_min_16x8;
-        //             mv_16x8_d[0]  = result_mv_16x8;
-        //         end
-        //         SAD_LXS_1: begin
-        //             min_16x8_d[1] = result_min_16x8;
-        //             mv_16x8_d[1]  = result_mv_16x8;
-        //         end
-        //         SAD_SXL_0: begin
-        //             min_8x16_d[0] = result_min_16x8;
-        //             mv_8x16_d[0]  = result_mv_16x8;
-        //         end
-        //         SAD_SXL_1: begin
-        //             min_8x16_d[1] = result_min_16x8;
-        //             mv_8x16_d[1]  = result_mv_16x8;
-        //         end
-        //     endcase
-        // end
-        //
-        // if (result_16x16_valid) begin
-        //     min_16x16_d = result_min_16x16;
-        //     mv_16x16_d  = result_mv_16x16;
-        // end
 
 endmodule
