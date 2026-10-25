@@ -4,9 +4,10 @@
 //
 
 module fs_pe (
-    input logic clk,  // The primary clock
-    input logic clear,  // Synchronous, pipelined accumulator clear signal
-    input logic stall,  // Pipelined stall signal
+    input logic clk,   // The primary clock
+    input logic stall, // Compute unit stall signal
+    input logic clear, // Synchronous, pipelined accumulator clear signal
+
     input logic [3:0][me_pkg::PEL_W-1:0] rb,  // Reference block input
     input logic [3:0][me_pkg::PEL_W-1:0] cb,  // Current block input
     output logic [me_pkg::SAD_4X4_W-1:0] sad  // Computed SAD output
@@ -27,9 +28,7 @@ module fs_pe (
         sad_l1[0] = sad_l0[0] + sad_l0[1];
         sad_l1[1] = sad_l0[2] + sad_l0[3];
 
-        if (stall) begin
-            acc_d = acc_q;
-        end else if (clear) begin
+        if (clear) begin
             acc_d = {3'b000, sad_l1[0]} + {3'b000, sad_l1[1]};
         end else begin
             acc_d = acc_q + {3'b000, sad_l1[0]} + {3'b000, sad_l1[1]};
@@ -37,7 +36,11 @@ module fs_pe (
     end
 
     always_ff @(posedge clk) begin
-        acc_q <= acc_d;
+        if (stall) begin
+            acc_q <= acc_q;
+        end else begin
+            acc_q <= acc_d;
+        end
     end
 
     always_comb begin

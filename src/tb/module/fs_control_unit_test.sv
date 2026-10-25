@@ -14,53 +14,95 @@ module fs_control_unit_test;
 
     import me_pkg::*;
     import svunit_pkg::svunit_testcase;
+    import fs_tb_common_pkg::*;
 
     // ------------------------------------------------------------------
-    // UUT signals
+    // test_wiring
     // ------------------------------------------------------------------
+
+    typedef logic [WINDOW_SIZE+6:0][PEL_W-1:0] rb_row_t;
+    typedef logic [7:0][PEL_W-1:0] cb_row_t;
+    typedef logic [PEL_W-1:0] frame_t[FRAME_HEIGHT][FRAME_WIDTH];
+
     logic clk;
-    logic              rst_n;
-    logic              rb_ready;
-    logic              rb_valid;
+    logic rst_n;
+    logic rb_ready;
+    logic rb_valid;
     logic [WINDOW_SIZE+6:0][PEL_W-1:0] rb;
-    logic              cb_ready;
-    logic              cb_valid;
-    logic [3:0][PEL_W-1:0] cb[4];
+    logic cb_ready;
+    logic cb_valid;
+    logic [7:0][PEL_W-1:0] cb;
 
-    // RAM models for the control's three SRAM ports (TODO: implement).
-    sram_if#(.ADDR_W(SW_IDX_W), .DATA_W(SAD_8X8_W+WINDOW_SIZE))  ram_a();
-    sram_if#(.ADDR_W(SW_IDX_W), .DATA_W(SAD_8X8_W+WINDOW_SIZE))  ram_b();
-    sram_if#(.ADDR_W(SW_IDX_W), .DATA_W(SAD_16X8_W+WINDOW_SIZE)) ram_c();
+    sad_result_if results ();
 
-    sad_result_if results();
+    fs_control dut (.*);
 
-    // ------------------------------------------------------------------
-    // UUT instance
-    // ------------------------------------------------------------------
-    fs_control dut (
-        .clk       (clk),
-        .rst_n     (rst_n),
-        .rb_ready  (rb_ready),
-        .rb_valid  (rb_valid),
-        .rb        (rb),
-        .cb_ready  (cb_ready),
-        .cb_valid  (cb_valid),
-        .cb        (cb),
-        .ram_a     (ram_a.mstr),
-        .ram_b     (ram_b.mstr),
-        .ram_c     (ram_c.mstr),
-        .results   (results.source)
-    );
-
-    // 10ns clock, free-running for the whole run.
     initial begin
-        clk = 0;
+        clk   = 0;
+        rst_n = 0;
+        #20 rst_n = 1;
         forever #5 clk = ~clk;
     end
+
+    task automatic drive_cycle(rb_row_t rb_d, cb_row_t cb_d);
+        rb_valid = 1;
+        rb = rb_d;
+        cb_valid = 1;
+        cb = cb_d;
+
+        #0;
+        @(posedge clk);
+        #0;
+    endtask
+
+    task automatic drive_subblock(rb_row_t rb_d[39], cb_row_t cb_d[8]);
+        for (int i = 0; i < 39; i++) begin
+            if (i < 8) begin
+                drive_cycle(rb_d[i], cb_d[i]);
+            end else begin
+                drive_cycle(rb_d[i], 'x);
+            end
+        end
+    endtask
+
+    task automatic get_sb(output rb_row_t rb_d[39], cb_row_t cb_d[8], input frame_t rf, frame_t cf,
+                          int b_idx, int sb_idx);
+        int signed b_row, b_col;
+        int signed rf_row, rf_col;
+        int signed cf_row, cf_col;
+
+        b_row = b_idx / 80;
+        b_col = b_idx % 80;
+
+        rf_row = (b_row - 1) * 16;
+        rf_col = (b_col - 1) * 16;
+
+        for (int row = 0; row < 39; row++) begin
+            for (int col = 0; col < 39; col++) begin
+                if (row >= 0 && row < 720 && col >= 0 && col < 1280)
+                    rb_d[row][col] = rf[rf_row+row][rf_col+col];
+                else
+                    rb_d[row][col] = '0;
+            end
+        end
+
+        cf_row = b_row * 16;
+        cf_col = b_col * 16;
+
+        for (int row = 0; row < 8; row++) begin
+            for (int col = 0; col < 8; col++) begin
+                if (row >= 0 && row < 720 && col >= 0 && col < 1280)
+                    cb_d[row][col] = cf[cf_row+row][cf_col+col];
+                else
+                    cb_d[row][col] = '0;
+            end
+        end
+    endtask
 
     // ------------------------------------------------------------------
     // svunit scaffolding
     // ------------------------------------------------------------------
+
     string name = "fs_control_ut";
     svunit_testcase svunit_ut;
 
@@ -70,17 +112,10 @@ module fs_control_unit_test;
 
     task setup();
         svunit_ut.setup();
-        // TODO: fix the rst_n polarity contradiction in fs_control, then
-        // apply a real reset sequence here.
-        rst_n    = '1;
         rb_valid = '0;
         cb_valid = '0;
         rb       = '0;
         for (int i = 0; i < 4; i++) cb[i] = '0;
-        // TODO: model the RAMs; for now reads return zero.
-        ram_a.rd_data = '0;
-        ram_b.rd_data = '0;
-        ram_c.rd_data = '0;
     endtask
 
     task teardown();
@@ -89,10 +124,7 @@ module fs_control_unit_test;
 
     `SVUNIT_TESTS_BEGIN
 
-    `SVTEST(skeleton_smoke)
-        // TODO: replace with real coverage of fs_control.
-        `INFO("skeleton_smoke: free-running clock for a few cycles");
-        repeat (4) @(posedge clk);
+    `SVTEST(typical)
     `SVTEST_END
 
     `SVUNIT_TESTS_END

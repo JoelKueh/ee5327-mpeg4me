@@ -14,7 +14,7 @@ module fs_comparator #(
     int SAD_RESULT_W = me_pkg::SAD_8X4_W
 ) (
     input logic clk,    // The primary clock
-    input logic stall,  // Pipelined stall signal
+    input logic clear,  // Input clear signal
 
     input logic input_valid,  // Input sad valid signal
     input logic input_last,   // Last input sad signal
@@ -103,14 +103,14 @@ module fs_comparator #(
     end
 
     always_ff @(posedge clk) begin
-        if (stall) begin
-            input_valid_q <= input_valid_q;
-            input_last_q <= input_last_q;
-            result_sad_q <= result_sad_q;
-            result_row_q <= result_row_q;
-            result_col_q <= result_col_q;
-            sad_l2_q <= sad_l2_q;
-            col_l2_q <= col_l2_q;
+        if (clear) begin
+            input_valid_q <= '0;
+            input_last_q <= '0;
+            result_sad_q <= '0;
+            result_row_q <= '0;
+            result_col_q <= '0;
+            sad_l2_q <= '0;
+            col_l2_q <= '0;
         end else begin
             input_valid_q <= input_valid_d;
             input_last_q <= input_last_d;
