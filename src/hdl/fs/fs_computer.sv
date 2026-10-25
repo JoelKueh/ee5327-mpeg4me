@@ -16,6 +16,8 @@ module fs_computer (
     input logic [me_pkg::RB_ROW_IDX_W-1:0] rb_row_idx,  // Reference block search window offset
 
     output logic sad_valid, // SAD data valid signal
+    output logic [me_pkg::SAD_4X4_W-1:0] sad_4x4[4][me_pkg::WINDOW_SIZE], // Buffered output 4x4 row results
+    output logic [me_pkg::SAD_8X4_W-1:0] sad_4x8[2][me_pkg::WINDOW_SIZE], // Buffered output 4x8 row results
     output logic [me_pkg::SAD_8X4_W-1:0] sad_8x4[2][me_pkg::WINDOW_SIZE], // Buffered output 8x4 row results
     output logic [me_pkg::SAD_8X8_W-1:0] sad_8x8[me_pkg::WINDOW_SIZE],    // Buffered output 8x8 row results
     output logic [me_pkg::SW_IDX_W-1:0] sad_sw_idx  // SAD search window offset
@@ -25,7 +27,8 @@ module fs_computer (
 
     logic [WINDOW_SIZE+6:0][PEL_W-1:0] rb_sr_q[4], rb_sr_d[4];
 
-    logic [SAD_4X4_W-1:0] sad_4x4[4][WINDOW_SIZE];
+    logic [SAD_4X4_W-1:0] sad_4x4_q[4][WINDOW_SIZE], sad_4x4_d[4][WINDOW_SIZE];
+    logic [SAD_8X4_W-1:0] sad_4x8_q[2][WINDOW_SIZE], sad_4x8_d[2][WINDOW_SIZE];
     logic [SAD_8X4_W-1:0] sad_8x4_q[2][WINDOW_SIZE], sad_8x4_d[2][WINDOW_SIZE];
     logic [SAD_8X8_W-1:0] sad_8x8_q[WINDOW_SIZE], sad_8x8_d[WINDOW_SIZE];
 
@@ -41,7 +44,7 @@ module fs_computer (
         .row_idx_mod(row_idx_mod_q[3]),
         .rb(rb_sr_q[3][WINDOW_SIZE+2:0]),
         .cb(cb[3:0]),
-        .sad(sad_4x4[0])
+        .sad(sad_4x4_d[0])
     );
 
     fs_pe_array pe_array_ur (
@@ -51,7 +54,7 @@ module fs_computer (
         .row_idx_mod(row_idx_mod_q[3]),
         .rb(rb_sr_q[3][WINDOW_SIZE+6:4]),
         .cb(cb[7:4]),
-        .sad(sad_4x4[1])
+        .sad(sad_4x4_d[1])
     );
 
     fs_pe_array pe_array_dl (
@@ -61,7 +64,7 @@ module fs_computer (
         .row_idx_mod(row_idx_mod_q[3]),
         .rb(rb[WINDOW_SIZE+2:0]),
         .cb(cb[3:0]),
-        .sad(sad_4x4[2])
+        .sad(sad_4x4_d[2])
     );
 
     fs_pe_array pe_array_dr (
@@ -71,7 +74,7 @@ module fs_computer (
         .row_idx_mod(row_idx_mod_q[3]),
         .rb(rb[WINDOW_SIZE+6:4]),
         .cb(cb[7:4]),
-        .sad(sad_4x4[3])
+        .sad(sad_4x4_d[3])
     );
 
     always_comb begin
@@ -84,10 +87,14 @@ module fs_computer (
         sad_valid_d[0] = rb_row_idx >= 7 && bd_valid;
         sad_valid_d[1] = sad_valid_q[0];
 
-        // Compute the 8x4 and 8x8 results in one cycle
+        // Compute the 4x8, 8x4 and 8x8 results in one cycle
         for (int row = 0; row < WINDOW_SIZE; row++) begin
-            sad_8x4_d[0][row] = sad_4x4[0][row] + sad_4x4[2][row];
-            sad_8x4_d[1][row] = sad_4x4[1][row] + sad_4x4[3][row];
+            sad_4x8_d[0][row] = sad_4x4_d[0][row] + sad_4x4_d[1][row];
+            sad_4x8_d[1][row] = sad_4x4_d[2][row] + sad_4x4_d[3][row];
+
+            sad_8x4_d[0][row] = sad_4x4_d[0][row] + sad_4x4_d[2][row];
+            sad_8x4_d[1][row] = sad_4x4_d[1][row] + sad_4x4_d[3][row];
+
             sad_8x8_d[row] = sad_8x4_d[0][row] + sad_8x4_d[1][row];
         end
 
@@ -107,6 +114,8 @@ module fs_computer (
 
     // Buffer the output of the 4x4 PE arrays
     always_ff @(posedge clk) begin
+        sad_4x4_q <= sad_4x4_d;
+        sad_4x8_q <= sad_4x8_d;
         sad_8x4_q <= sad_8x4_d;
         sad_8x8_q <= sad_8x8_d;
         rb_sr_q <= rb_sr_d;
@@ -117,6 +126,8 @@ module fs_computer (
 
     // Assign the 8x4 and 8x8 output
     always_comb begin
+        sad_4x4 = sad_4x4_q;
+        sad_4x8 = sad_4x8_q;
         sad_8x4 = sad_8x4_q;
         sad_8x8 = sad_8x8_q;
         sad_sw_idx = sad_sw_idx_q[1];

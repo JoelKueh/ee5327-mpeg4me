@@ -18,17 +18,24 @@ module fs_control (
     input  logic [7:0][me_pkg::PEL_W-1:0] cb,        // Current block input
 
     // Valid output of the different comparators
+    output logic result_4x4_valid[4],
+    output logic result_4x8_valid[2],
     output logic result_8x4_valid[2],
     output logic result_8x8_valid,
     output logic result_16x8_valid,
     output logic result_16x16_valid,
 
-    // Wire output of the different comparators
+    // Minimum SAD output of the different comparators
+    output logic [me_pkg::SAD_4X4_W-1:0] result_min_4x4[4],
+    output logic [me_pkg::SAD_8X4_W-1:0] result_min_4x8[2],
     output logic [me_pkg::SAD_8X4_W-1:0] result_min_8x4[2],
     output logic [me_pkg::SAD_8X8_W-1:0] result_min_8x8,
     output logic [me_pkg::SAD_16X8_W-1:0] result_min_16x8,
     output logic [me_pkg::SAD_16X16_W-1:0] result_min_16x16,
 
+    // Motion vector output of the different comaprators
+    output me_pkg::mv_t result_mv_4x4[4],
+    output me_pkg::mv_t result_mv_4x8[2],
     output me_pkg::mv_t result_mv_8x4[2],
     output me_pkg::mv_t result_mv_8x8,
     output me_pkg::mv_t result_mv_16x8,
@@ -61,6 +68,8 @@ module fs_control (
     logic sad_16x16_last;
 
     // Results of SAD computations from computer and combiner
+    logic [SAD_4X4_W-1:0] sad_4x4[4][WINDOW_SIZE];
+    logic [SAD_8X4_W-1:0] sad_4x8[2][WINDOW_SIZE];
     logic [SAD_8X4_W-1:0] sad_8x4[2][WINDOW_SIZE];
     logic [SAD_8X8_W-1:0] sad_8x8[WINDOW_SIZE];
     logic [SAD_16X8_W-1:0] sad_16x8[WINDOW_SIZE];
@@ -85,6 +94,8 @@ module fs_control (
         .rb_row_idx(rb_row_idx_q),
 
         .sad_valid(sad_8x8_valid),
+        .sad_4x4(sad_4x4),
+        .sad_4x8(sad_4x8),
         .sad_8x4(sad_8x4),
         .sad_8x8(sad_8x8),
         .sad_sw_idx(sw_idx_8x8)
@@ -115,35 +126,66 @@ module fs_control (
         .sad_16x16(sad_16x16)
     );
 
-    // Comparator - Preforms a MIN reduction on input SADs
-    fs_comparator #(SAD_8X4_W) comparator_8x4_1 (
-        .clk  (clk),
-        .clear(clear_q),
+    genvar i;
 
-        .input_valid (sad_8x8_valid),
-        .input_last  (sw_idx_8x8 == 31),
-        .input_sw_idx(sw_idx_8x8),
-        .input_sads  (sad_8x4[0]),
+    // 4x4 Comparators - Produces all four 4x4 mv for the current subblock
+    generate
+        for (i = 0; i < 4; i++) begin : comparator_4x4
+            fs_comparator #(SAD_4X4_W) comparator (
+                .clk  (clk),
+                .clear(clear_q),
 
-        .result_valid(result_8x4_valid[0]),
-        .result_sad(result_min_8x4[0]),
-        .result_mv(result_mv_8x4[0])
-    );
+                .input_valid (sad_8x8_valid),
+                .input_last  (sw_idx_8x8 == 31),
+                .input_sw_idx(sw_idx_8x8),
+                .input_sads  (sad_4x4[i]),
 
-    fs_comparator #(SAD_8X4_W) comparator_8x4_2 (
-        .clk  (clk),
-        .clear(clear_q),
+                .result_valid(result_4x4_valid[i]),
+                .result_sad(result_min_4x4[i]),
+                .result_mv(result_mv_4x4[i])
+            );
+        end
+    endgenerate
 
-        .input_valid (sad_8x8_valid),
-        .input_last  (sw_idx_8x8 == 31),
-        .input_sw_idx(sw_idx_8x8),
-        .input_sads  (sad_8x4[1]),
+    // 4x8 Comparators - Produces all two 4x8 mv for the current subblock
+    generate
+        for (i = 0; i < 2; i++) begin : comparator_4x8
+            fs_comparator #(SAD_8X4_W) comparator (
+                .clk  (clk),
+                .clear(clear_q),
 
-        .result_valid(result_8x4_valid[1]),
-        .result_sad(result_min_8x4[1]),
-        .result_mv(result_mv_8x4[1])
-    );
+                .input_valid (sad_8x8_valid),
+                .input_last  (sw_idx_8x8 == 31),
+                .input_sw_idx(sw_idx_8x8),
+                .input_sads  (sad_4x8[i]),
 
+                .result_valid(result_4x8_valid[i]),
+                .result_sad(result_min_4x8[i]),
+                .result_mv(result_mv_4x8[i])
+            );
+        end
+    endgenerate
+
+    // 8x4 Comparators - Produces all two 8x4 mv for the current subblock
+    generate
+        for (i = 0; i < 2; i++) begin : comparator_8x4
+            fs_comparator #(SAD_8X4_W) comparator (
+                .clk  (clk),
+                .clear(clear_q),
+
+                .input_valid (sad_8x8_valid),
+                .input_last  (sw_idx_8x8 == 31),
+                .input_sw_idx(sw_idx_8x8),
+                .input_sads  (sad_8x4[i]),
+
+                .result_valid(result_8x4_valid[i]),
+                .result_sad(result_min_8x4[i]),
+                .result_mv(result_mv_8x4[i])
+            );
+        end
+    endgenerate
+
+    // 8x8 Comparator - Produces the 8x8 mv for the current subblock
     fs_comparator #(SAD_8X8_W) comparator_8x8 (
         .clk  (clk),
         .clear(clear_q),
@@ -158,7 +200,7 @@ module fs_control (
         .result_mv(result_mv_8x8)
     );
 
-    // 16x8 comparator handles both 16x8 and 8x16 SADs
+    // 16x8 Comparator - Computes all 16x8 and 8x16 mv
     fs_comparator #(SAD_16X8_W) comparator_16x8 (
         .clk  (clk),
         .clear(comb_clear_out),
@@ -173,6 +215,7 @@ module fs_control (
         .result_mv(result_mv_16x8)
     );
 
+    // 16x16 Comparator - Computes the onlye 16x16 mv
     fs_comparator #(SAD_16X16_W) comparator_16x16 (
         .clk  (clk),
         .clear(comb_clear_out),

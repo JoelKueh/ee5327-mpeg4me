@@ -26,14 +26,20 @@ module fs_control_unit_test;
     logic cb_ready;
     logic cb_valid;
     logic [7:0][PEL_W-1:0] cb;
+    logic result_4x4_valid[4];
+    logic result_4x8_valid[2];
     logic result_8x4_valid[2];
     logic result_8x8_valid;
     logic result_16x8_valid;
     logic result_16x16_valid;
+    logic [SAD_4X4_W-1:0] result_min_4x4[4];
+    logic [SAD_8X4_W-1:0] result_min_4x8[2];
     logic [SAD_8X4_W-1:0] result_min_8x4[2];
     logic [SAD_8X8_W-1:0] result_min_8x8;
     logic [SAD_16X8_W-1:0] result_min_16x8;
     logic [SAD_16X16_W-1:0] result_min_16x16;
+    mv_t result_mv_4x4[4];
+    mv_t result_mv_4x8[2];
     mv_t result_mv_8x4[2];
     mv_t result_mv_8x8;
     mv_t result_mv_16x8;
@@ -46,7 +52,15 @@ module fs_control_unit_test;
     // ------------------------------------------------------------------
 
     typedef struct {
-        // [sb_idx][0: left, 1: right] where sb_idx is 0:UL, 1:UR, 2:DL, 3:DR
+        // [sb_idx][0:UL, 1:UR, 2:DL, 3:DR] where sb_idx is 0:UL, 1:UR, 2:DL, 3:DR
+        logic [SAD_4X4_W-1:0]   min_4x4[4][4];
+        mv_t                    mv_4x4[4][4];
+
+        // 4 rows x 8 cols: [sb_idx][0: upper (UL+UR), 1: lower (DL+DR)]
+        logic [SAD_8X4_W-1:0]   min_4x8[4][2];
+        mv_t                    mv_4x8[4][2];
+
+        // 8 rows x 4 cols: [sb_idx][0: left (UL+DL), 1: right (UR+DR)]
         logic [SAD_8X4_W-1:0]   min_8x4[4][2];
         mv_t                    mv_8x4[4][2];
 
@@ -71,18 +85,15 @@ module fs_control_unit_test;
     mb_results_t exp_mb_q[int];
 
     // Independent stream counters
-    int cnt_8x4_0;
-    int cnt_8x4_1;
+    int cnt_4x4[4];
+    int cnt_4x8[2];
+    int cnt_8x4[2];
     int cnt_8x8;
     int cnt_16x8;
     int cnt_16x16;
 
     // ------------------------------------------------------------------
-    // On-the-Fly 5-Stream Checker
-    // ------------------------------------------------------------------
-
-    // ------------------------------------------------------------------
-    // On-the-Fly 5-Stream Checker
+    // On-the-Fly Multi-Stream Checker
     // ------------------------------------------------------------------
 
     always @(posedge clk) begin
@@ -91,31 +102,47 @@ module fs_control_unit_test;
         int p_idx;
 
         if (clear) begin
-            cnt_8x4_0 <= 0;
-            cnt_8x4_1 <= 0;
+            for (int i = 0; i < 4; i++) cnt_4x4[i] <= 0;
+            for (int i = 0; i < 2; i++) cnt_4x8[i] <= 0;
+            for (int i = 0; i < 2; i++) cnt_8x4[i] <= 0;
             cnt_8x8   <= 0;
             cnt_16x8  <= 0;
             cnt_16x16 <= 0;
         end else begin
-            // Stream 1: Leftmost 8x4 (8x4[0]) in Morton order
-            if (result_8x4_valid[0]) begin
-                b_idx  = cnt_8x4_0 / 4;
-                sb_idx = cnt_8x4_0 % 4;
-                `FAIL_UNLESS_EQUAL(result_min_8x4[0], exp_mb_q[b_idx].min_8x4[sb_idx][0])
-                `FAIL_UNLESS_EQUAL(result_mv_8x4[0],  exp_mb_q[b_idx].mv_8x4[sb_idx][0])
-                cnt_8x4_0 <= cnt_8x4_0 + 1;
+            // Streams: 4x4[0..3] in Morton order per 8x8 sub-block
+            for (int q = 0; q < 4; q++) begin
+                if (result_4x4_valid[q]) begin
+                    b_idx  = cnt_4x4[q] / 4;
+                    sb_idx = cnt_4x4[q] % 4;
+                    `FAIL_UNLESS_EQUAL(result_min_4x4[q], exp_mb_q[b_idx].min_4x4[sb_idx][q])
+                    `FAIL_UNLESS_EQUAL(result_mv_4x4[q],  exp_mb_q[b_idx].mv_4x4[sb_idx][q])
+                    cnt_4x4[q] <= cnt_4x4[q] + 1;
+                end
             end
 
-            // Stream 2: Rightmost 8x4 (8x4[1]) in Morton order
-            if (result_8x4_valid[1]) begin
-                b_idx  = cnt_8x4_1 / 4;
-                sb_idx = cnt_8x4_1 % 4;
-                `FAIL_UNLESS_EQUAL(result_min_8x4[1], exp_mb_q[b_idx].min_8x4[sb_idx][1])
-                `FAIL_UNLESS_EQUAL(result_mv_8x4[1],  exp_mb_q[b_idx].mv_8x4[sb_idx][1])
-                cnt_8x4_1 <= cnt_8x4_1 + 1;
+            // Streams: 4x8[0..1] in Morton order per 8x8 sub-block
+            for (int h = 0; h < 2; h++) begin
+                if (result_4x8_valid[h]) begin
+                    b_idx  = cnt_4x8[h] / 4;
+                    sb_idx = cnt_4x8[h] % 4;
+                    `FAIL_UNLESS_EQUAL(result_min_4x8[h], exp_mb_q[b_idx].min_4x8[sb_idx][h])
+                    `FAIL_UNLESS_EQUAL(result_mv_4x8[h],  exp_mb_q[b_idx].mv_4x8[sb_idx][h])
+                    cnt_4x8[h] <= cnt_4x8[h] + 1;
+                end
             end
 
-            // Stream 3: 8x8 in Morton order
+            // Streams: 8x4[0..1] in Morton order per 8x8 sub-block
+            for (int h = 0; h < 2; h++) begin
+                if (result_8x4_valid[h]) begin
+                    b_idx  = cnt_8x4[h] / 4;
+                    sb_idx = cnt_8x4[h] % 4;
+                    `FAIL_UNLESS_EQUAL(result_min_8x4[h], exp_mb_q[b_idx].min_8x4[sb_idx][h])
+                    `FAIL_UNLESS_EQUAL(result_mv_8x4[h],  exp_mb_q[b_idx].mv_8x4[sb_idx][h])
+                    cnt_8x4[h] <= cnt_8x4[h] + 1;
+                end
+            end
+
+            // Stream: 8x8 in Morton order
             if (result_8x8_valid) begin
                 b_idx  = cnt_8x8 / 4;
                 sb_idx = cnt_8x8 % 4;
@@ -124,7 +151,7 @@ module fs_control_unit_test;
                 cnt_8x8 <= cnt_8x8 + 1;
             end
 
-            // Stream 4: 16x8 in order (0: Upper, 1: Left, 2: Right, 3: Lower)
+            // Stream: 16x8 in order (0: Upper, 1: Left, 2: Right, 3: Lower)
             if (result_16x8_valid) begin
                 b_idx = cnt_16x8 / 4;
                 p_idx = cnt_16x8 % 4;
@@ -133,7 +160,7 @@ module fs_control_unit_test;
                 cnt_16x8 <= cnt_16x8 + 1;
             end
 
-            // Stream 5: 16x16
+            // Stream: 16x16
             if (result_16x16_valid) begin
                 b_idx = cnt_16x16;
                 `FAIL_UNLESS_EQUAL(result_min_16x16, exp_mb_q[b_idx].min_16x16)
@@ -263,57 +290,84 @@ module fs_control_unit_test;
 
         // 1. Initialize all minimum SADs to maximum all-1s
         for (int sb = 0; sb < 4; sb++) begin
-            exp.min_8x4[sb][0] = '1;
-            exp.min_8x4[sb][1] = '1;
-            exp.min_8x8[sb]    = '1;
-            exp.min_16x8[sb]   = '1;
+            for (int q = 0; q < 4; q++) exp.min_4x4[sb][q] = '1;
+            for (int h = 0; h < 2; h++) begin
+                exp.min_4x8[sb][h] = '1;
+                exp.min_8x4[sb][h] = '1;
+            end
+            exp.min_8x8[sb]  = '1;
+            exp.min_16x8[sb] = '1;
         end
         exp.min_16x16 = '1;
 
-        // 2. Compute Left 4x8 (index 0), Right 4x8 (index 1), and 8x8 SADs per sub-block
+        // 2. Compute 4x4, 4x8, 8x4, and 8x8 SADs per sub-block
         for (int sb = 0; sb < 4; sb++) begin
             for (int dy = 0; dy < WINDOW_SIZE; dy++) begin
                 for (int dx = 0; dx < WINDOW_SIZE; dx++) begin
-                    int sum_left_4x8  = 0;
-                    int sum_right_4x8 = 0;
-                    int sum_8x8       = 0;
+                    int sad_4x4[4]; // 0:UL, 1:UR, 2:DL, 3:DR
+                    int sum_4x8[2]; // 0:Left (UL+DL), 1:Right (UR+DR)
+                    int sum_8x4[2]; // 0:Upper (UL+UR), 1:Lower (DL+DR)
+                    int sum_8x8;
 
-                    // Upper 4x4 (rows 0..3) uses reference rows dy..dy+3
+                    sad_4x4 = '{default: 0};
+
+                    // Upper 4x4s: UL (sad_4x4[0]) and UR (sad_4x4[1])
+                    // Rows 0..3 use reference rows dy..dy+3
                     for (int r = 0; r < 4; r++) begin
                         for (int c = 0; c < 4; c++) begin
-                            int d_ul = int'(sb_cb[sb][r][c])     - int'(sb_rb[sb][dy + r][dx + c]);
-                            int d_ur = int'(sb_cb[sb][r][c+4])   - int'(sb_rb[sb][dy + r][dx + c + 4]);
-                            sum_left_4x8  += (d_ul < 0) ? -d_ul : d_ul;
-                            sum_right_4x8 += (d_ur < 0) ? -d_ur : d_ur;
+                            int d_ul = int'(sb_cb[sb][r][c])   - int'(sb_rb[sb][dy + r][dx + c]);
+                            int d_ur = int'(sb_cb[sb][r][c+4]) - int'(sb_rb[sb][dy + r][dx + c + 4]);
+                            sad_4x4[0] += (d_ul < 0) ? -d_ul : d_ul;
+                            sad_4x4[1] += (d_ur < 0) ? -d_ur : d_ur;
                         end
                     end
 
-                    // Lower 4x4 (rows 4..7) uses reference rows dy+4..dy+7
+                    // Lower 4x4s: DL (sad_4x4[2]) and DR (sad_4x4[3])
+                    // Rows 4..7 use reference rows dy+4..dy+7
                     for (int r = 4; r < 8; r++) begin
                         for (int c = 0; c < 4; c++) begin
-                            int d_dl = int'(sb_cb[sb][r][c])     - int'(sb_rb[sb][dy + r][dx + c]);
-                            int d_dr = int'(sb_cb[sb][r][c+4])   - int'(sb_rb[sb][dy + r][dx + c + 4]);
-                            sum_left_4x8  += (d_dl < 0) ? -d_dl : d_dl;
-                            sum_right_4x8 += (d_dr < 0) ? -d_dr : d_dr;
+                            int d_dl = int'(sb_cb[sb][r][c])   - int'(sb_rb[sb][dy + r][dx + c]);
+                            int d_dr = int'(sb_cb[sb][r][c+4]) - int'(sb_rb[sb][dy + r][dx + c + 4]);
+                            sad_4x4[2] += (d_dl < 0) ? -d_dl : d_dl;
+                            sad_4x4[3] += (d_dr < 0) ? -d_dr : d_dr;
                         end
                     end
 
-                    sum_8x8 = sum_left_4x8 + sum_right_4x8;
+                    // Combine 4x4 quadrants into 4x8 (Upper/Lower), 8x4 (Left/Right), and 8x8
+                    sum_4x8[0] = sad_4x4[0] + sad_4x4[1]; // Upper 4x8 (UL + UR, rows 0..3, cols 0..7)
+                    sum_4x8[1] = sad_4x4[2] + sad_4x4[3]; // Lower 4x8 (DL + DR, rows 4..7, cols 0..7)
+
+                    sum_8x4[0] = sad_4x4[0] + sad_4x4[2]; // Left 8x4  (UL + DL, rows 0..7, cols 0..3)
+                    sum_8x4[1] = sad_4x4[1] + sad_4x4[3]; // Right 8x4 (UR + DR, rows 0..7, cols 4..7)
+
+                    sum_8x8 = sum_8x4[0] + sum_8x4[1];
                     sad_8x8_grid[sb][dy][dx] = sum_8x8;
 
-                    // Left 4x8 (sad_8x4[0])
-                    if (sum_left_4x8 < exp.min_8x4[sb][0]) begin
-                        exp.min_8x4[sb][0] = sum_left_4x8[SAD_8X4_W-1:0];
-                        exp.mv_8x4[sb][0]  = to_mv(dy, dx);
+                    // Update 4x4 minimums (0:UL, 1:UR, 2:DL, 3:DR)
+                    for (int q = 0; q < 4; q++) begin
+                        if (sad_4x4[q] < exp.min_4x4[sb][q]) begin
+                            exp.min_4x4[sb][q] = sad_4x4[q][SAD_4X4_W-1:0];
+                            exp.mv_4x4[sb][q]  = to_mv(dy, dx);
+                        end
                     end
 
-                    // Right 4x8 (sad_8x4[1])
-                    if (sum_right_4x8 < exp.min_8x4[sb][1]) begin
-                        exp.min_8x4[sb][1] = sum_right_4x8[SAD_8X4_W-1:0];
-                        exp.mv_8x4[sb][1]  = to_mv(dy, dx);
+                    // Update 4x8 minimums (0:Upper, 1:Lower)
+                    for (int h = 0; h < 2; h++) begin
+                        if (sum_4x8[h] < exp.min_4x8[sb][h]) begin
+                            exp.min_4x8[sb][h] = sum_4x8[h][SAD_8X4_W-1:0];
+                            exp.mv_4x8[sb][h]  = to_mv(dy, dx);
+                        end
                     end
 
-                    // 8x8 Sub-block
+                    // Update 8x4 minimums (0:Left, 1:Right)
+                    for (int h = 0; h < 2; h++) begin
+                        if (sum_8x4[h] < exp.min_8x4[sb][h]) begin
+                            exp.min_8x4[sb][h] = sum_8x4[h][SAD_8X4_W-1:0];
+                            exp.mv_8x4[sb][h]  = to_mv(dy, dx);
+                        end
+                    end
+
+                    // Update 8x8 Sub-block minimum
                     if (sum_8x8 < exp.min_8x8[sb]) begin
                         exp.min_8x8[sb] = sum_8x8[SAD_8X8_W-1:0];
                         exp.mv_8x8[sb]  = to_mv(dy, dx);
@@ -363,7 +417,7 @@ module fs_control_unit_test;
         rb_valid = '0;
         cb_valid = '0;
         rb       = '0;
-        for (int i = 0; i < 4; i++) cb[i] = '0;
+        cb       = '0;
     endtask
 
     task teardown();
