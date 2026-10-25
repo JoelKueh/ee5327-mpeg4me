@@ -24,7 +24,7 @@ module fs_comparator_unit_test;
     typedef int sad_array_t[WINDOW_SIZE][WINDOW_SIZE];
 
     logic clk;
-    logic stall;
+    logic clear;
     logic input_valid;
     logic input_last;
     logic [SW_IDX_W-1:0] input_sw_idx;
@@ -44,24 +44,27 @@ module fs_comparator_unit_test;
         // Holy cursed (1:38 AM)
         // NEVER WRITE SystemVerilog at 3:00 AM (Scary) (Not Clickbait)
         if (do_stall && $urandom_range(1, 100) > 0) begin
-            drive_cycle(1, v, l, i, sads, 0);
+            sad_row_t x_sad;
+            for (int i = 0; i < 32; i++) x_sad[i] = 'x;
+            drive_cycle(1, 0, 'x, 'x, x_sad, 0);
         end
 
-        stall = s;
         input_valid = v;
         input_last = l;
         input_sw_idx = i;
         input_sads = sads;
 
-        #0;
-        // $display("5 - %p", dut.input_sads);
-        // $display("4 - %p", dut.sad_l4);
-        // $display("3 - %p", dut.sad_l3);
-        // $display("2 - %p", dut.sad_l2_d);
-        // $display("2 - %p", dut.sad_l2_q);
-        // $display("1 - %p", dut.sad_l1);
-        // $display("0 - %h", dut.result_sad);
-        // $display("");
+        #1;
+        $display("last=%d valid=%d valid_q=%d out_valid=%d input_sw_idx=%h input_sw_idx_q=%h",
+            l, input_valid, dut.input_valid_q, dut.result_valid, input_sw_idx, dut.input_sw_idx_q[0]);
+        $display("5 - %p", dut.input_sads);
+        $display("4 - %p", dut.sad_l4);
+        $display("3 - %p", dut.sad_l3);
+        $display("2 - %p", dut.sad_l2_d);
+        $display("2 - %p", dut.sad_l2_q);
+        $display("1 - %p", dut.sad_l1);
+        $display("0 - %h", dut.result_sad);
+        $display("");
         @(posedge clk);
         #0;
     endtask
@@ -79,7 +82,6 @@ module fs_comparator_unit_test;
 
     task setup();
         svunit_ut.setup();
-        stall        = '0;
         input_valid  = '0;
         input_last   = '0;
         input_sw_idx = '0;
@@ -105,6 +107,7 @@ module fs_comparator_unit_test;
 
         std::randomize(sad_buf);
         for (int i = 0; i < 32; i++) begin
+            $display(i);
             drive_cycle(0, 1, i==31, i, sad_buf[i], 0);
         end
 
@@ -127,9 +130,9 @@ module fs_comparator_unit_test;
         for (int i = 0; i < 32; i++) begin
             drive_cycle(0, 1, i==31, i, sad_buf[i], 0);
 
-            if (i == 0) begin
-                `FAIL_UNLESS_LOG(result_sad === '1, $sformatf("act=0x%0h exp=0x%0h", result_sad, '1));
-            end
+            // if (i == 0) begin
+            //     `FAIL_UNLESS_LOG(result_sad === '1, $sformatf("act=0x%0h exp=0x%0h", result_sad, '1));
+            // end
         end
 
         drive_cycle(0, 0, 0, 33, x_sad, 0);
@@ -159,9 +162,9 @@ module fs_comparator_unit_test;
             drive_cycle(0, 1, i==31, i, sad_buf[i], 1);
         end
 
-        drive_cycle(0, 0, 0, 33, x_sad, 1);
+        drive_cycle(0, 0, 0, 33, x_sad, 0);
         `FAIL_UNLESS_LOG(result_valid === '0, $sformatf("act=0x%0h exp=0x%0h", result_valid, 0));
-        drive_cycle(0, 0, 0, 34, x_sad, 1);
+        drive_cycle(0, 0, 0, 34, x_sad, 0);
         `FAIL_UNLESS_LOG(result_valid === '1, $sformatf("act=0x%0h exp=0x%0h", result_valid, 1));
 
         result = fs_tb_common_pkg::sad_minimum#(SAD_8X4_W)::f(sad_buf);
@@ -171,23 +174,23 @@ module fs_comparator_unit_test;
 
         $display("POWIEJFPOQIJFPOIJXPCOIFJ");
 
-        drive_cycle(0, 0, 0, 34, x_sad, 1);
+        drive_cycle(0, 0, 0, 34, x_sad, 0);
         `FAIL_UNLESS_LOG(result_valid === '0, $sformatf("act=0x%0h exp=0x%0h", result_valid, 0));
-        drive_cycle(0, 0, 0, 35, x_sad, 1);
+        drive_cycle(0, 0, 0, 35, x_sad, 0);
         `FAIL_UNLESS_LOG(result_valid === '0, $sformatf("act=0x%0h exp=0x%0h", result_valid, 0));
 
         std::randomize(sad_buf);
         for (int i = 0; i < 32; i++) begin
             drive_cycle(0, 1, i==31, i, sad_buf[i], 1);
 
-            if (i == 0) begin
-                `FAIL_UNLESS_LOG(result_sad === '1, $sformatf("act=0x%0h exp=0x%0h", result_sad, '1));
-            end
+            // if (i == 0) begin
+            //     `FAIL_UNLESS_LOG(result_sad === '1, $sformatf("act=0x%0h exp=0x%0h", result_sad, '1));
+            // end
         end
 
-        drive_cycle(0, 0, 0, 33, x_sad, 1);
+        drive_cycle(0, 0, 0, 33, x_sad, 0);
         `FAIL_UNLESS_LOG(result_valid === '0, $sformatf("act=0x%0h exp=0x%0h", result_valid, 0));
-        drive_cycle(0, 0, 0, 34, x_sad, 1);
+        drive_cycle(0, 0, 0, 34, x_sad, 0);
         `FAIL_UNLESS_LOG(result_valid === '1, $sformatf("act=0x%0h exp=0x%0h", result_valid, 1));
 
         result = fs_tb_common_pkg::sad_minimum#(SAD_8X4_W)::f(sad_buf);

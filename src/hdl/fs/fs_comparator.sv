@@ -29,6 +29,7 @@ module fs_comparator #(
     import me_pkg::*;
 
     logic input_valid_q, input_valid_d;
+    logic [SW_IDX_W-1:0] input_sw_idx_q, input_sw_idx_d;
     logic input_last_q[2], input_last_d[2];
 
     logic [SAD_RESULT_W-1:0] sad_l4[16];
@@ -81,9 +82,9 @@ module fs_comparator #(
         // Swap the reduced SAD with that in the register to maintain the minimum
         result_select = sad_l1[1] < sad_l1[0];
         result_sad_d  = result_select ? sad_l1[1] : sad_l1[0];
-        result_row_d  = input_sw_idx - 1;  // Comparator adds one cycle of latency.
+        result_row_d  = input_sw_idx_q;  // Comparator adds one cycle of latency.
         result_col_d  = {result_select, col_l1[result_select]};
-        if (result_sad_d > result_sad_q) begin
+        if (!input_valid_q || result_sad_d > result_sad_q) begin
             result_sad_d = result_sad_q;
             result_row_d = result_row_q;
             result_col_d = result_col_q;
@@ -91,11 +92,12 @@ module fs_comparator #(
 
         // Cary the valid and last signals through
         input_valid_d = input_valid;
-        input_last_d[0] = input_last;
+        input_last_d[0] = input_valid && input_last;
         input_last_d[1] = input_last_q[0];
+        input_sw_idx_d = input_sw_idx;
 
-        // Clear the sad register on invalid l2 accumulator value
-        if (!input_valid_q) begin
+        // Clear the sad register on the last row of data
+        if (input_last_q[1]) begin
             result_sad_d = '1;
             result_row_d = '0;
             result_col_d = '0;
@@ -105,15 +107,17 @@ module fs_comparator #(
     always_ff @(posedge clk) begin
         if (clear) begin
             input_valid_q <= '0;
-            input_last_q <= '0;
+            for (int i = 0; i < 2; i++) input_last_q[i] <= '0;
+            input_sw_idx_q <= '0;
             result_sad_q <= '0;
             result_row_q <= '0;
             result_col_q <= '0;
-            sad_l2_q <= '0;
-            col_l2_q <= '0;
-        end else begin
+            for (int i = 0; i < 4; i++) sad_l2_q[i] <= '0;
+            for (int i = 0; i < 4; i++) col_l2_q[i] <= '0;
+        end begin
             input_valid_q <= input_valid_d;
             input_last_q <= input_last_d;
+            input_sw_idx_q <= input_sw_idx_d;
             result_sad_q <= result_sad_d;
             result_row_q <= result_row_d;
             result_col_q <= result_col_d;
