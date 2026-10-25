@@ -18,17 +18,23 @@ module me_top (
     input  logic [7:0][me_pkg::PEL_W-1:0] cb,        // Current block input
 
     // Valid output of the different comparators
+    output logic result_4x4_valid[4],
+    output logic result_4x8_valid[2],
     output logic result_8x4_valid[2],
     output logic result_8x8_valid,
     output logic result_16x8_valid,
     output logic result_16x16_valid,
 
     // Wire output of the different comparators
+    output logic [me_pkg::SAD_4X4_W-1:0] result_min_4x4[4],
+    output logic [me_pkg::SAD_8X4_W-1:0] result_min_4x8[2],
     output logic [me_pkg::SAD_8X4_W-1:0] result_min_8x4[2],
     output logic [me_pkg::SAD_8X8_W-1:0] result_min_8x8,
     output logic [me_pkg::SAD_16X8_W-1:0] result_min_16x8,
     output logic [me_pkg::SAD_16X16_W-1:0] result_min_16x16,
 
+    output me_pkg::mv_t result_mv_4x4[4],
+    output me_pkg::mv_t result_mv_4x8[2],
     output me_pkg::mv_t result_mv_8x4[2],
     output me_pkg::mv_t result_mv_8x8,
     output me_pkg::mv_t result_mv_16x8,
