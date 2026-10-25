@@ -2,12 +2,6 @@
 //
 // svunit testbench for fs_control (RB/CB handshake + datapath control).
 //
-// Skeleton - no behavioral coverage yet; add tests after the smoke test.
-// The RAMs behind the sram_if mstr ports are currently unmodeled: rd_data
-// is tied to zero in setup(). Note: rst_n is held at 1, which per the RTL
-// holds the DUT in reset (see the documented reset-polarity issue).
-// Run with: make test-module   (or make test for everything)
-//
 `include "svunit_defines.svh"
 
 module fs_control_unit_test;
@@ -25,7 +19,7 @@ module fs_control_unit_test;
     typedef logic [PEL_W-1:0] frame_t[FRAME_HEIGHT][FRAME_WIDTH];
 
     logic clk;
-    logic rst_n;
+    logic clear;
     logic rb_ready;
     logic rb_valid;
     logic [WINDOW_SIZE+6:0][PEL_W-1:0] rb;
@@ -39,8 +33,6 @@ module fs_control_unit_test;
 
     initial begin
         clk   = 0;
-        rst_n = 0;
-        #20 rst_n = 1;
         forever #5 clk = ~clk;
     end
 
@@ -65,7 +57,7 @@ module fs_control_unit_test;
         end
     endtask
 
-    task automatic get_sb(output rb_row_t rb_d[39], cb_row_t cb_d[8], input frame_t rf, frame_t cf,
+    task automatic get_sb(inout rb_row_t rb_d[39], cb_row_t cb_d[8], input frame_t rf, frame_t cf,
                           int b_idx, int sb_idx);
         int signed b_row, b_col;
         int signed rf_row, rf_col;
@@ -125,6 +117,23 @@ module fs_control_unit_test;
     `SVUNIT_TESTS_BEGIN
 
     `SVTEST(typical)
+        rb_row_t rb_d[39];
+        cb_row_t cb_d[8];
+
+        std::randomize(rb_d);
+        std::randomize(cb_d);
+
+        clear = 1;
+        #20 clear = 0;
+
+        drive_subblock(rb_d, cb_d);
+        drive_subblock(rb_d, cb_d);
+        drive_subblock(rb_d, cb_d);
+        drive_subblock(rb_d, cb_d);
+        drive_subblock(rb_d, cb_d);
+    `SVTEST_END
+
+    `SVTEST(typical_stall)
     `SVTEST_END
 
     `SVUNIT_TESTS_END

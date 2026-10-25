@@ -28,7 +28,7 @@ module fs_control (
     // Input data buffers
     logic [WINDOW_SIZE+6:0][PEL_W-1:0] rb_q, rb_d;
     logic rb_has_data_q, rb_has_data_d;
-    logic [3:0][PEL_W-1:0] cb_q[4], cb_d[4];
+    logic [7:0][PEL_W-1:0] cb_q, cb_d;
     logic cb_has_data_q, cb_has_data_d;
 
     // Current row and current subblock trackers
@@ -56,6 +56,7 @@ module fs_control (
 
     // Nets defining the row that each compuation belongs to
     logic [SW_IDX_W-1:0] sw_idx_8x8;
+    logic [SW_IDX_W-1:0] sw_idx_16x8;
     logic [SW_IDX_W-1:0] sw_idx_16x16;
 
     // Buffered output for the SAD computations
@@ -89,6 +90,7 @@ module fs_control (
     mv_t result_mv_16x16;
 
     logic clear_q, clear_d;
+    logic comb_clear_out;
 
     // Computer - Computes fisrt level SAD results from the RB stream
     fs_computer computer (
@@ -96,7 +98,7 @@ module fs_control (
 
         .bd_valid(bd_valid),
         .cb(cb_q),
-        .rb(rb),
+        .rb(rb_q),
         .rb_row_idx(rb_row_idx_q),
 
         .sad_valid(sad_8x8_valid),
@@ -109,7 +111,7 @@ module fs_control (
     fs_combiner comb8x8 (
         .clk(clk),
         .clear_in(clear_q),
-        .clear_out(),
+        .clear_out(comb_clear_out),
 
         .sad_8x8_valid(sad_8x8_valid),
         .sad_8x8_last(sw_idx_8x8 == 31),
@@ -133,7 +135,7 @@ module fs_control (
     // Comparator - Preforms a MIN reduction on input SADs
     fs_comparator #(SAD_8X4_W) comparator_8x4_1 (
         .clk  (clk),
-        .stall(stall_d[COMPUTER_LATENCY-1]),
+        .clear(clear_q),
 
         .input_valid (sad_8x8_valid),
         .input_last  (sw_idx_8x8 == 31),
@@ -147,7 +149,7 @@ module fs_control (
 
     fs_comparator #(SAD_8X4_W) comparator_8x4_2 (
         .clk  (clk),
-        .stall(stall_d[COMPUTER_LATENCY-1]),
+        .clear(clear_q),
 
         .input_valid (sad_8x8_valid),
         .input_last  (sw_idx_8x8 == 31),
@@ -161,11 +163,11 @@ module fs_control (
 
     fs_comparator #(SAD_8X8_W) comparator_8x8 (
         .clk  (clk),
-        .stall(stall_d[COMPUTER_LATENCY-1]),
+        .clear(clear_q),
 
         .input_valid (sad_8x8_valid),
         .input_last  (sw_idx_8x8 == 31),
-        .input_sw_idx(row_idx_8x8),
+        .input_sw_idx(sw_idx_8x8),
         .input_sads  (sad_8x8),
 
         .result_valid(result_8x8_valid),
@@ -176,10 +178,10 @@ module fs_control (
     // 16x8 comparator handles both 16x8 and 8x16 SADs
     fs_comparator #(SAD_16X8_W) comparator_16x8 (
         .clk  (clk),
-        .stall(stall_d[COMPUTER_LATENCY-1]),
+        .clear(comb_clear_out),
 
         .input_valid (sad_16x8_valid),
-        .input_last  (sad_16x16_last),
+        .input_last  (sad_16x8_last),
         .input_sw_idx(sw_idx_16x8),
         .input_sads  (sad_16x8),
 
@@ -190,7 +192,7 @@ module fs_control (
 
     fs_comparator #(SAD_16X16_W) comparator_16x16 (
         .clk  (clk),
-        .stall(stall_d[COMPUTER_LATENCY-1]),
+        .clear(comb_clear_out),
 
         .input_valid (sad_16x16_valid),
         .input_last  (sad_16x16_last),
@@ -203,7 +205,7 @@ module fs_control (
     );
 
     always_comb begin
-        clear_d = clear_q;
+        clear_d = clear;
 
         rb_d = rb_q;
         rb_has_data_d = rb_has_data_q;
@@ -223,6 +225,18 @@ module fs_control (
         rb_ready = bd_valid || !rb_has_data_q;
         cb_ready = bd_valid || !cb_has_data_q;
 
+        // Drive data if we are not stalled.
+        if (bd_valid) begin
+            assert (cb_has_data_q);
+            assert (rb_has_data_q);
+            cb_has_data_d = 0;
+            rb_has_data_d = 0;
+
+            // Update the row index, then the subblock index if necessary.
+            rb_row_idx_d = rb_row_idx_q == 38 ? 0 : rb_row_idx_q + 1;
+            if (rb_row_idx_d == 0) sb_idx_8x8_d = sb_idx_8x8_q + 1;
+        end
+
         // Handshake and buffer data from the stream.
         if (rb_ready && rb_valid) begin
             rb_d = rb;
@@ -232,18 +246,6 @@ module fs_control (
         if (cb_ready && cb_valid) begin
             cb_d = cb;
             cb_has_data_d = 1;
-        end
-
-        // Drive data if we are not stalled.
-        if (bd_valid) begin
-            assert (cb_has_data_q);
-            assert (rb_has_data_q);
-            cb_has_data_d = 0;
-            rb_has_data_d = 0;
-
-            // Update the row index, then the subblock index if necessary.
-            rb_row_idx_d  = rb_row_idx_q + 1;
-            if (rb_row_idx_d == 0) sb_idx_8x8_d = sb_idx_8x8_q + 1;
         end
 
         // Save the output results of the SAD computation.
@@ -307,8 +309,8 @@ module fs_control (
             for (int i = 0; i < 4; i++) cb_q[i] <= '0;
             cb_has_data_q <= '0;
 
-            rb_row_idx_q  <= '0;
-            sb_idx_8x8_q  <= '0;
+            rb_row_idx_q <= '0;
+            sb_idx_8x8_q <= '0;
 
             for (int i = 0; i < 8; i++) min_8x4_q[i] <= '0;
             for (int i = 0; i < 4; i++) min_8x8_q[i] <= '0;
