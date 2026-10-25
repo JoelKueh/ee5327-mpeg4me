@@ -26,8 +26,18 @@ module fs_control_unit_test;
     logic cb_ready;
     logic cb_valid;
     logic [7:0][PEL_W-1:0] cb;
-
-    sad_result_if results ();
+    logic result_8x4_valid[2];
+    logic result_8x8_valid;
+    logic result_16x8_valid;
+    logic result_16x16_valid;
+    logic [SAD_8X4_W-1:0] result_min_8x4[2];
+    logic [SAD_8X8_W-1:0] result_min_8x8;
+    logic [SAD_16X8_W-1:0] result_min_16x8;
+    logic [SAD_16X16_W-1:0] result_min_16x16;
+    mv_t result_mv_8x4[2];
+    mv_t result_mv_8x8;
+    mv_t result_mv_16x8;
+    mv_t result_mv_16x16;
 
     fs_control dut (.*);
 
@@ -140,5 +150,46 @@ module fs_control_unit_test;
     `SVTEST_END
 
     `SVUNIT_TESTS_END
+        //
+        // if (result_8x4_valid[0]) begin
+        //     min_8x4_d[2*(sb_idx_8x8_q[0]-1)] = result_min_8x4[0];
+        //     mv_8x4_d[2*(sb_idx_8x8_q[0]-1)]  = result_mv_8x4[0];
+        // end
+        //
+        // if (result_8x4_valid[1]) begin
+        //     min_8x4_d[2*(sb_idx_8x8_q[0]-1)+1] = result_min_8x4[1];
+        //     mv_8x4_d[2*(sb_idx_8x8_q[0]-1)+1]  = result_mv_8x4[1];
+        // end
+        //
+        // if (result_8x8_valid) begin
+        //     min_8x8_d[sb_idx_8x8_q[0]-1] = result_min_8x8;
+        //     mv_8x8_d[sb_idx_8x8_q[0]-1]  = result_mv_8x8;
+        // end
+        //
+        // if (result_16x8_valid) begin
+        //     case (sad_16x8_id)
+        //         SAD_LXS_0: begin
+        //             min_16x8_d[0] = result_min_16x8;
+        //             mv_16x8_d[0]  = result_mv_16x8;
+        //         end
+        //         SAD_LXS_1: begin
+        //             min_16x8_d[1] = result_min_16x8;
+        //             mv_16x8_d[1]  = result_mv_16x8;
+        //         end
+        //         SAD_SXL_0: begin
+        //             min_8x16_d[0] = result_min_16x8;
+        //             mv_8x16_d[0]  = result_mv_16x8;
+        //         end
+        //         SAD_SXL_1: begin
+        //             min_8x16_d[1] = result_min_16x8;
+        //             mv_8x16_d[1]  = result_mv_16x8;
+        //         end
+        //     endcase
+        // end
+        //
+        // if (result_16x16_valid) begin
+        //     min_16x16_d = result_min_16x16;
+        //     mv_16x16_d  = result_mv_16x16;
+        // end
 
 endmodule
