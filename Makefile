@@ -34,7 +34,6 @@ VCS         ?= vcs
 
 RTL_SOURCES := \
     $(realpath src/hdl/me_pkg.sv) \
-    $(realpath src/hdl/sad_result_if.sv) \
     $(realpath src/hdl/sram_if.sv) \
     $(realpath src/hdl/sram_wrapper.sv) \
     $(realpath src/hdl/sram_macro_bb.sv) \
