@@ -35,7 +35,7 @@ module fs_computer (
     logic upper_half_q[2], upper_half_d[2];
     logic [SW_IDX_W-1:0] sad_sw_idx_q[2], sad_sw_idx_d[2];
     logic sad_valid_q, sad_valid_d;
-    logic [RB_ROW_IDX_W-1:0] rb_row_idx_q, rb_row_idx_d;
+    logic stage0_valid_q, stage0_valid_d;
 
     // Instantiate 4 4x4_SAD PE arrays arranged as a full 8x8 block
     fs_pe_array pe_array_l (
@@ -80,17 +80,15 @@ module fs_computer (
 
     always_comb begin
 
-        sad_valid_d = bd_valid && rb_row_idx_q >= 3 ;
-
-        // Update pipeline registers.
-        sad_sw_idx_d = sad_sw_idx_q;
-        upper_half_d = upper_half_q;
-        rb_row_idx_d = rb_row_idx;
+        stage0_valid_d = bd_valid && (rb_row_idx >= 3);
         if (bd_valid) begin
             upper_half_d[0] = upper_half;
+            sad_sw_idx_d[0] = SW_IDX_W'(rb_row_idx - 3'd3);
+        end
+        
+        sad_valid_d = stage0_valid_q;
+        if (stage0_valid_q) begin
             upper_half_d[1] = upper_half_q[0];
-
-            sad_sw_idx_d[0] = SW_IDX_W'(rb_row_idx - 3);
             sad_sw_idx_d[1] = sad_sw_idx_q[0];
         end
 
@@ -155,7 +153,7 @@ module fs_computer (
         upper_half_q <= upper_half_d;
         sad_sw_idx_q <= sad_sw_idx_d;
         sad_valid_q <= sad_valid_d;
-        rb_row_idx_q <= rb_row_idx_d;
+        stage0_valid_q <= stage0_valid_d;
     end
 
     // Assign the 8x4 and 8x8 output
