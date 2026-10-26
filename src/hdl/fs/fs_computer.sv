@@ -34,7 +34,7 @@ module fs_computer (
 
     logic upper_half_q[2], upper_half_d[2];
     logic [SW_IDX_W-1:0] sad_sw_idx_q[2], sad_sw_idx_d[2];
-    logic sad_valid_q[2], sad_valid_d[2];
+    logic sad_valid_q, sad_valid_d;
     logic [RB_ROW_IDX_W-1:0] rb_row_idx_q, rb_row_idx_d;
 
     // Instantiate 4 4x4_SAD PE arrays arranged as a full 8x8 block
@@ -80,8 +80,7 @@ module fs_computer (
 
     always_comb begin
 
-        sad_valid_d[0] = bd_valid && rb_row_idx_q >= 3 ;
-        sad_valid_d[1] = sad_valid_d[0];
+        sad_valid_d = bd_valid && rb_row_idx_q >= 3 ;
 
         // Update pipeline registers.
         sad_sw_idx_d = sad_sw_idx_q;
@@ -116,7 +115,7 @@ module fs_computer (
         ram_b_if.rd_addr = 'x;
 
         // Save to RAM when computing the upper half
-        if (upper_half_q[0] && sad_valid_d[0]) begin
+        if (upper_half_q[0] && sad_valid_d) begin
             ram_a_if.wr_en = 1;
             ram_a_if.wr_addr = sad_sw_idx_q[0];
             for (int col = 0; col < WINDOW_SIZE; col++) begin
@@ -163,7 +162,7 @@ module fs_computer (
 
     // Assign the 8x4 and 8x8 output
     always_comb begin
-        sad_4x_valid = sad_valid_q[1];
+        sad_4x_valid = sad_valid_q;
         sad_4x4 = sad_4x4_q;
         sad_4x8 = sad_4x8_q;
         sad_8x_valid = sad_4x_valid && !upper_half_q[1];
