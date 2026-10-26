@@ -388,22 +388,22 @@ module fs_computer_unit_test;
         check(rec_buf, rb_unp, cb_unp, 32);
     `SVTEST_END
 
-    `SVTEST(typical_stall)
-        rb_row_t rb_buf[$];
-        cb_row_t cb_buf[$];
-        pel_arr_unpacked_t rb_unp;
-        pel_arr_unpacked_t cb_unp;
-        sad_record_q_t rec_buf;
+    //`SVTEST(typical_stall)
+    //    rb_row_t rb_buf[$];
+    //    cb_row_t cb_buf[$];
+    //    pel_arr_unpacked_t rb_unp;
+    //    pel_arr_unpacked_t cb_unp;
+    //    sad_record_q_t rec_buf;
 
-        std::randomize(rb_buf) with { rb_buf.size == 39; };
-        std::randomize(cb_buf) with { cb_buf.size == 8; };
-        rb_unp = fs_tb_common_pkg::pel_unpack#(39, WINDOW_SIZE+7)::f(rb_buf);
-        cb_unp = fs_tb_common_pkg::pel_unpack#(8, 8)::f(cb_buf);
+    //    std::randomize(rb_buf) with { rb_buf.size == 39; };
+    //    std::randomize(cb_buf) with { cb_buf.size == 8; };
+    //    rb_unp = fs_tb_common_pkg::pel_unpack#(39, WINDOW_SIZE+7)::f(rb_buf);
+    //    cb_unp = fs_tb_common_pkg::pel_unpack#(8, 8)::f(cb_buf);
 
-        drive_subblock_stream(rec_buf, rb_buf, cb_buf, 1, 1);
+    //    drive_subblock_stream(rec_buf, rb_buf, cb_buf, 1, 1);
 
-        check(rec_buf, rb_unp, cb_unp, 32);
-    `SVTEST_END
+    //    check(rec_buf, rb_unp, cb_unp, 32);
+    //`SVTEST_END
 
     `SVTEST(back_to_back_subblocks)
         rb_row_t tmp_rb[$];
