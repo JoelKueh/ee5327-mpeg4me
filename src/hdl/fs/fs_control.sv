@@ -4,18 +4,19 @@
 //
 
 module fs_control (
-    input logic clk,   // The primary clock
-    input logic clear, // Synchronous clear signal
+    input logic clk,
+    input logic clear,
 
     // Reference block is streamed into the control model in Morton order.
-    output logic rb_ready,  // Reference block ready signal
-    input logic rb_valid,  // Reference block data valid signal
-    input logic [me_pkg::WINDOW_SIZE+6:0][me_pkg::PEL_W-1:0] rb,  // Reference block input stream
+    output logic rb_ready,
+    input logic rb_valid,
+    input logic [me_pkg::WINDOW_SIZE+6:0][me_pkg::PEL_W-1:0] rb,
 
     // Current block is also streamed in Morton order.
-    output logic                          cb_ready,  // Current block ready signal
-    input  logic                          cb_valid,  // Current block data valid signal
-    input  logic [7:0][me_pkg::PEL_W-1:0] cb,        // Current block input
+    output logic                          cb_ready,
+    input  logic                          cb_valid,
+    input  logic [7:0][me_pkg::PEL_W-1:0] cb,
+    input  logic                          upper_half,
 
     // Valid output of the different comparators
     output logic result_4x4_valid[4],
@@ -44,8 +45,6 @@ module fs_control (
 
     import me_pkg::*;
 
-    parameter int COMPUTER_LATENCY = 9;
-
     // Input data buffers
     logic [WINDOW_SIZE+6:0][PEL_W-1:0] rb_q, rb_d;
     logic rb_has_data_q, rb_has_data_d;
@@ -59,7 +58,8 @@ module fs_control (
 
     // Valid output of the different SAD engines
     logic bd_valid;
-    logic sad_8x8_valid;
+    logic sad_4x_valid;
+    logic sad_8x_valid;
     logic sad_16x8_valid;
     logic sad_16x16_valid;
 
@@ -68,8 +68,8 @@ module fs_control (
     logic sad_16x16_last;
 
     // Results of SAD computations from computer and combiner
-    logic [SAD_4X4_W-1:0] sad_4x4[4][WINDOW_SIZE];
-    logic [SAD_8X4_W-1:0] sad_4x8[2][WINDOW_SIZE];
+    logic [SAD_4X4_W-1:0] sad_4x4[2][WINDOW_SIZE];
+    logic [SAD_8X4_W-1:0] sad_4x8[WINDOW_SIZE];
     logic [SAD_8X4_W-1:0] sad_8x4[2][WINDOW_SIZE];
     logic [SAD_8X8_W-1:0] sad_8x8[WINDOW_SIZE];
     logic [SAD_16X8_W-1:0] sad_16x8[WINDOW_SIZE];
@@ -89,13 +89,15 @@ module fs_control (
         .clk(clk),
 
         .bd_valid(bd_valid),
+        .upper_half(upper_half),
         .cb(cb_q),
         .rb(rb_q),
         .rb_row_idx(rb_row_idx_q),
 
-        .sad_valid(sad_8x8_valid),
+        .sad_4x_valid(sad_4x_valid),
         .sad_4x4(sad_4x4),
         .sad_4x8(sad_4x8),
+        .sad_8x_valid(sad_8x_valid),
         .sad_8x4(sad_8x4),
         .sad_8x8(sad_8x8),
         .sad_sw_idx(sw_idx_8x8)
@@ -107,7 +109,7 @@ module fs_control (
         .clear_in(clear_q),
         .clear_out(comb_clear_out),
 
-        .sad_8x8_valid(sad_8x8_valid),
+        .sad_8x8_valid(sad_8x_valid),
         .sad_8x8_last(sw_idx_8x8 == 31),
         .sb_idx_8x8(sb_idx_8x8_q[2]),
         .sw_idx_8x8(sw_idx_8x8),
@@ -130,12 +132,12 @@ module fs_control (
 
     // 4x4 Comparators - Produces all four 4x4 mv for the current subblock
     generate
-        for (i = 0; i < 4; i++) begin : comparator_4x4
+        for (i = 0; i < 2; i++) begin : comparator_4x4
             fs_comparator #(SAD_4X4_W) comparator (
                 .clk  (clk),
                 .clear(clear_q),
 
-                .input_valid (sad_8x8_valid),
+                .input_valid (sad_4x_valid),
                 .input_last  (sw_idx_8x8 == 31),
                 .input_sw_idx(sw_idx_8x8),
                 .input_sads  (sad_4x4[i]),
@@ -147,24 +149,20 @@ module fs_control (
         end
     endgenerate
 
-    // 4x8 Comparators - Produces all two 4x8 mv for the current subblock
-    generate
-        for (i = 0; i < 2; i++) begin : comparator_4x8
-            fs_comparator #(SAD_8X4_W) comparator (
-                .clk  (clk),
-                .clear(clear_q),
+    // 4x8 Comparators - Produces 4x8 mv for the current subblock
+    fs_comparator #(SAD_8X4_W) comparator (
+        .clk  (clk),
+        .clear(clear_q),
 
-                .input_valid (sad_8x8_valid),
-                .input_last  (sw_idx_8x8 == 31),
-                .input_sw_idx(sw_idx_8x8),
-                .input_sads  (sad_4x8[i]),
+        .input_valid (sad_4x_valid),
+        .input_last  (sw_idx_8x8 == 31),
+        .input_sw_idx(sw_idx_8x8),
+        .input_sads  (sad_4x8),
 
-                .result_valid(result_4x8_valid[i]),
-                .result_sad(result_min_4x8[i]),
-                .result_mv(result_mv_4x8[i])
-            );
-        end
-    endgenerate
+        .result_valid(result_4x8_valid),
+        .result_sad(result_min_4x8),
+        .result_mv(result_mv_4x8)
+    );
 
     // 8x4 Comparators - Produces all two 8x4 mv for the current subblock
     generate
@@ -173,7 +171,7 @@ module fs_control (
                 .clk  (clk),
                 .clear(clear_q),
 
-                .input_valid (sad_8x8_valid),
+                .input_valid (sad_8x_valid),
                 .input_last  (sw_idx_8x8 == 31),
                 .input_sw_idx(sw_idx_8x8),
                 .input_sads  (sad_8x4[i]),
@@ -190,7 +188,7 @@ module fs_control (
         .clk  (clk),
         .clear(clear_q),
 
-        .input_valid (sad_8x8_valid),
+        .input_valid (sad_8x_valid),
         .input_last  (sw_idx_8x8 == 31),
         .input_sw_idx(sw_idx_8x8),
         .input_sads  (sad_8x8),
@@ -259,7 +257,7 @@ module fs_control (
             rb_has_data_d = 0;
 
             // Update the row index, then the subblock index if necessary.
-            rb_row_idx_d = rb_row_idx_q == 38 ? 0 : rb_row_idx_q + 1;
+            rb_row_idx_d = rb_row_idx_q == 34 ? 0 : rb_row_idx_q + 1;
             if (rb_row_idx_d == 0) sb_idx_8x8_d[0] = sb_idx_8x8_q[0] + 1;
             sb_idx_8x8_d[1] = sb_idx_8x8_q[0];
             sb_idx_8x8_d[2] = sb_idx_8x8_q[1];

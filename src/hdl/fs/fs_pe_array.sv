@@ -13,7 +13,7 @@ module fs_pe_array (
     input logic [me_pkg::WINDOW_SIZE+2:0][me_pkg::PEL_W-1:0] rb,  // Reference block input
     input logic [                    3:0][me_pkg::PEL_W-1:0] cb,  // Current block input
 
-    output logic [me_pkg::SAD_4X4_W-1:0] sad[me_pkg::WINDOW_SIZE] // Buffered output SAD computations
+    output logic [me_pkg::SAD_4X4_W-1:0] sad[me_pkg::WINDOW_SIZE]
 );
 
     import me_pkg::*;
