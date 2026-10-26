@@ -32,8 +32,8 @@ module fs_computer (
     logic [SAD_8X4_W-1:0] sad_8x4_q[2][WINDOW_SIZE], sad_8x4_d[2][WINDOW_SIZE];
     logic [SAD_8X8_W-1:0] sad_8x8_q[WINDOW_SIZE], sad_8x8_d[WINDOW_SIZE];
 
-    logic upper_half_q[5], upper_half_d[5];
-    logic [SW_IDX_W-1:0] sad_sw_idx_q[5], sad_sw_idx_d[5];
+    logic upper_half_q[2], upper_half_d[2];
+    logic [SW_IDX_W-1:0] sad_sw_idx_q[2], sad_sw_idx_d[2];
     logic sad_valid_q[2], sad_valid_d[2];
     logic [RB_ROW_IDX_W-1:0] rb_row_idx_q, rb_row_idx_d;
 
@@ -88,11 +88,13 @@ module fs_computer (
         upper_half_d = upper_half_q;
         rb_row_idx_d = rb_row_idx_q;
         if (bd_valid) begin
-            sad_sw_idx_d[0] = rb_row_idx;
-            upper_half_d[0] = upper_half;
             rb_row_idx_d = rb_row_idx;
-            for (int i = 1; i < 5; i++) sad_sw_idx_d[i] = sad_sw_idx_q[i-1];
-            for (int i = 1; i < 5; i++) upper_half_d[i] = upper_half_q[i-1];
+
+            upper_half_d[0] = upper_half;
+            upper_half_d[1] = upper_half_q[0];
+
+            sad_sw_idx_d[0] = SW_IDX_W'(rb_row_idx - 3);
+            sad_sw_idx_d[1] = sad_sw_idx_q[0];
         end
 
         // Compute the 4x8, 8x4 and 8x8 results in one cycle
@@ -114,15 +116,15 @@ module fs_computer (
         ram_b_if.rd_addr = 'x;
 
         // Save to RAM when computing the upper half
-        if (upper_half_q[3]) begin
+        if (upper_half_q[0] && sad_valid_d[0]) begin
             ram_a_if.wr_en = 1;
-            ram_a_if.wr_addr = sad_sw_idx_q[3];
+            ram_a_if.wr_addr = sad_sw_idx_q[0];
             for (int col = 0; col < WINDOW_SIZE; col++) begin
                 ram_a_if.wr_data[col*SAD_4X4_W +: SAD_4X4_W] = sad_4x4_d[0][col];
             end
 
             ram_b_if.wr_en = 1;
-            ram_b_if.wr_addr = sad_sw_idx_q[3];
+            ram_b_if.wr_addr = sad_sw_idx_q[0];
             for (int col = 0; col < WINDOW_SIZE; col++) begin
                 ram_b_if.wr_data[col*SAD_4X4_W +: SAD_4X4_W] = sad_4x4_d[1][col];
             end
@@ -130,12 +132,12 @@ module fs_computer (
 
         // Retrieve from RAM when computing the lower half
         // Send read one cycle early so data arrives simultaneously
-        if (!upper_half_q[2]) begin
+        if (!upper_half && bd_valid && (rb_row_idx >= 3)) begin
             ram_a_if.rd_en = 1;
-            ram_a_if.rd_addr = sad_sw_idx_q[2];
+            ram_a_if.rd_addr = SW_IDX_W'(rb_row_idx - 3'd3);
 
             ram_b_if.rd_en = 1;
-            ram_b_if.rd_addr = sad_sw_idx_q[2];
+            ram_b_if.rd_addr = SW_IDX_W'(rb_row_idx - 3'd3);
         end
 
         // Compute the 8x4 and 8x8 SADs from the inputs and RAM
@@ -164,10 +166,10 @@ module fs_computer (
         sad_4x_valid = sad_valid_q[1];
         sad_4x4 = sad_4x4_q;
         sad_4x8 = sad_4x8_q;
-        sad_8x_valid = sad_4x_valid && !upper_half_q[4];
+        sad_8x_valid = sad_4x_valid && !upper_half_q[1];
         sad_8x4 = sad_8x4_q;
         sad_8x8 = sad_8x8_q;
-        sad_sw_idx = sad_sw_idx_q[4];
+        sad_sw_idx = sad_sw_idx_q[1];
     end
 
 endmodule
