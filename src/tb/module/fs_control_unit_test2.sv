@@ -26,6 +26,7 @@ module fs_control_unit_test;
     logic cb_ready;
     logic cb_valid;
     logic [7:0][PEL_W-1:0] cb;
+    logic upper_half;
     logic result_8x4_valid[2];
     logic result_8x8_valid;
     logic result_16x8_valid;
@@ -118,16 +119,12 @@ module fs_control_unit_test;
     // Golden Reference Model
     // ------------------------------------------------------------------
 
-    // Helper to convert (dy, dx) search index [0..WINDOW_SIZE-1] to mv_t.
-    // Adjust field names or signed offsets (e.g., dy - 16) if your mv_t uses signed coordinates.
     function automatic mv_t to_mv(int dy, int dx);
         mv_t mv;
-        // Assuming packed or struct {y, x} - update if mv_t has specific field names:
         mv = {dy[($bits(mv_t)/2)-1:0], dx[($bits(mv_t)/2)-1:0]};
         return mv;
     endfunction
 
-    // Computes all expected minimum SADs and MVs for a 16x16 Macroblock (4 8x8 sub-blocks)
     function automatic void calc_expected_results(
         input  rb_row_t     sb_rb[4][39],
         input  cb_row_t     sb_cb[4][8],
@@ -137,7 +134,6 @@ module fs_control_unit_test;
         int sad_8x8_grid[4][WINDOW_SIZE][WINDOW_SIZE];
         int sad_16x8_0, sad_16x8_1, sad_8x16_0, sad_8x16_1, sad_16x16;
 
-        // Initialize minimums to max value
         for (int i = 0; i < 8; i++) exp.min_8x4[i] = '1;
         for (int i = 0; i < 4; i++) exp.min_8x8[i] = '1;
         for (int i = 0; i < 2; i++) begin
@@ -146,7 +142,6 @@ module fs_control_unit_test;
         end
         exp.min_16x16 = '1;
 
-        // 1. Calculate 8x4 and 8x8 SADs per sub-block across the search window
         for (int sb = 0; sb < 4; sb++) begin
             for (int dy = 0; dy < WINDOW_SIZE; dy++) begin
                 for (int dx = 0; dx < WINDOW_SIZE; dx++) begin
@@ -166,17 +161,14 @@ module fs_control_unit_test;
                     sad_8x4_grid[sb][1][dy][dx] = sum_bot;
                     sad_8x8_grid[sb][dy][dx]    = sum_top + sum_bot;
 
-                    // Track 8x4 Top Min (strictly '<' favors first-seen on tie)
                     if (sum_top < exp.min_8x4[2*sb]) begin
                         exp.min_8x4[2*sb] = sum_top[SAD_8X4_W-1:0];
                         exp.mv_8x4[2*sb]  = to_mv(dy, dx);
                     end
-                    // Track 8x4 Bottom Min
                     if (sum_bot < exp.min_8x4[2*sb + 1]) begin
                         exp.min_8x4[2*sb + 1] = sum_bot[SAD_8X4_W-1:0];
                         exp.mv_8x4[2*sb + 1]  = to_mv(dy, dx);
                     end
-                    // Track 8x8 Min
                     if ((sum_top + sum_bot) < exp.min_8x8[sb]) begin
                         exp.min_8x8[sb] = (sum_top + sum_bot)[SAD_8X8_W-1:0];
                         exp.mv_8x8[sb]  = to_mv(dy, dx);
@@ -185,17 +177,13 @@ module fs_control_unit_test;
             end
         end
 
-        // 2. Combine 8x8 SAD grids to find 16x8, 8x16, and 16x16 minimums
-        // Sub-block layout:
-        //   [0: Top-Left ] [1: Top-Right]
-        //   [2: Bot-Left ] [3: Bot-Right]
         for (int dy = 0; dy < WINDOW_SIZE; dy++) begin
             for (int dx = 0; dx < WINDOW_SIZE; dx++) begin
-                sad_16x8_0 = sad_8x8_grid[0][dy][dx] + sad_8x8_grid[1][dy][dx]; // Top 16x8
-                sad_16x8_1 = sad_8x8_grid[2][dy][dx] + sad_8x8_grid[3][dy][dx]; // Bot 16x8
-                sad_8x16_0 = sad_8x8_grid[0][dy][dx] + sad_8x8_grid[2][dy][dx]; // Left 8x16
-                sad_8x16_1 = sad_8x8_grid[1][dy][dx] + sad_8x8_grid[3][dy][dx]; // Right 8x16
-                sad_16x16  = sad_16x8_0 + sad_16x8_1;                           // Full 16x16
+                sad_16x8_0 = sad_8x8_grid[0][dy][dx] + sad_8x8_grid[1][dy][dx];
+                sad_16x8_1 = sad_8x8_grid[2][dy][dx] + sad_8x8_grid[3][dy][dx];
+                sad_8x16_0 = sad_8x8_grid[0][dy][dx] + sad_8x8_grid[2][dy][dx];
+                sad_8x16_1 = sad_8x8_grid[1][dy][dx] + sad_8x8_grid[3][dy][dx];
+                sad_16x16  = sad_16x8_0 + sad_16x8_1;
 
                 if (sad_16x8_0 < exp.min_16x8[0]) begin
                     exp.min_16x8[0] = sad_16x8_0[SAD_16X8_W-1:0];
@@ -226,14 +214,12 @@ module fs_control_unit_test;
     // ------------------------------------------------------------------
 
     task automatic check_mb_results(input mb_results_t exp);
-        // Ensure all expected outputs were captured
         `FAIL_UNLESS_EQUAL(act_min_8x4_q0.size(), 4)
         `FAIL_UNLESS_EQUAL(act_min_8x4_q1.size(), 4)
         `FAIL_UNLESS_EQUAL(act_min_8x8_q.size(), 4)
         `FAIL_UNLESS_EQUAL(act_min_16x8_q.size(), 4)
         `FAIL_UNLESS_EQUAL(act_min_16x16_q.size(), 1)
 
-        // Check 8x4 and 8x8 results across all 4 sub-blocks
         for (int sb = 0; sb < 4; sb++) begin
             `FAIL_UNLESS_EQUAL(act_min_8x4_q0[sb], exp.min_8x4[2*sb])
             `FAIL_UNLESS_EQUAL(act_mv_8x4_q0[sb],  exp.mv_8x4[2*sb])
@@ -245,21 +231,18 @@ module fs_control_unit_test;
             `FAIL_UNLESS_EQUAL(act_mv_8x8_q[sb],   exp.mv_8x8[sb])
         end
 
-        // Check 16x8 and 8x16 results (assuming emission order: LXS_0, LXS_1, SXL_0, SXL_1)
-        // Note: Reorder indices if your FSM emits SXL_0 before LXS_1
-        `FAIL_UNLESS_EQUAL(act_min_16x8_q[0], exp.min_16x8[0]) // SAD_LXS_0 (Top 16x8)
+        `FAIL_UNLESS_EQUAL(act_min_16x8_q[0], exp.min_16x8[0])
         `FAIL_UNLESS_EQUAL(act_mv_16x8_q[0],  exp.mv_16x8[0])
 
-        `FAIL_UNLESS_EQUAL(act_min_16x8_q[1], exp.min_16x8[1]) // SAD_LXS_1 (Bot 16x8)
+        `FAIL_UNLESS_EQUAL(act_min_16x8_q[1], exp.min_16x8[1])
         `FAIL_UNLESS_EQUAL(act_mv_16x8_q[1],  exp.mv_16x8[1])
 
-        `FAIL_UNLESS_EQUAL(act_min_16x8_q[2], exp.min_8x16[0]) // SAD_SXL_0 (Left 8x16)
+        `FAIL_UNLESS_EQUAL(act_min_16x8_q[2], exp.min_8x16[0])
         `FAIL_UNLESS_EQUAL(act_mv_16x8_q[2],  exp.mv_8x16[0])
 
-        `FAIL_UNLESS_EQUAL(act_min_16x8_q[3], exp.min_8x16[1]) // SAD_SXL_1 (Right 8x16)
+        `FAIL_UNLESS_EQUAL(act_min_16x8_q[3], exp.min_8x16[1])
         `FAIL_UNLESS_EQUAL(act_mv_16x8_q[3],  exp.mv_8x16[1])
 
-        // Check 16x16 result
         `FAIL_UNLESS_EQUAL(act_min_16x16_q[0], exp.min_16x16)
         `FAIL_UNLESS_EQUAL(act_mv_16x16_q[0],  exp.mv_16x16)
     endtask
@@ -268,25 +251,36 @@ module fs_control_unit_test;
     // Stimulus Tasks
     // ------------------------------------------------------------------
 
-    task automatic drive_cycle(rb_row_t rb_d, cb_row_t cb_d);
+    task automatic drive_cycle(rb_row_t rb_d, cb_row_t cb_d, logic ul_half);
         rb_valid = 1;
         rb = rb_d;
         cb_valid = 1;
         cb = cb_d;
+        upper_half = ul_half;
 
         #0;
         do begin
             @(posedge clk);
-        end while (!rb_ready); // Respect backpressure if rb_ready deasserts
+        end while (!rb_ready);
         #0;
     endtask
 
     task automatic drive_subblock(rb_row_t rb_d[39], cb_row_t cb_d[8]);
+        // Pass 1: Upper half (upper_half = 1, rows 0-3 of CB)
         for (int i = 0; i < 39; i++) begin
-            if (i < 8) begin
-                drive_cycle(rb_d[i], cb_d[i]);
+            if (i < 4) begin
+                drive_cycle(rb_d[i], cb_d[i], 1'b1);
             end else begin
-                drive_cycle(rb_d[i], 'x);
+                drive_cycle(rb_d[i], 'x, 1'b1);
+            end
+        end
+
+        // Pass 2: Lower half (upper_half = 0, rows 4-7 of CB)
+        for (int i = 0; i < 39; i++) begin
+            if (i < 4) begin
+                drive_cycle(rb_d[i], cb_d[i+4], 1'b0);
+            end else begin
+                drive_cycle(rb_d[i], 'x, 1'b0);
             end
         end
     endtask
@@ -301,8 +295,6 @@ module fs_control_unit_test;
         b_row = b_idx / 80;
         b_col = b_idx % 80;
 
-        // Sub-block offset within the 16x16 macroblock:
-        // sb_idx 0: (0,0), 1: (0,8), 2: (8,0), 3: (8,8)
         sb_row_off = (sb_idx / 2) * 8;
         sb_col_off = (sb_idx % 2) * 8;
 
@@ -347,13 +339,14 @@ module fs_control_unit_test;
     task setup();
         svunit_ut.setup();
         clear_queues();
-        clear    = 1;
-        rb_valid = '0;
-        cb_valid = '0;
-        rb       = '0;
-        cb       = '0;
+        clear     = 1;
+        rb_valid  = '0;
+        cb_valid  = '0;
+        rb        = '0;
+        cb        = '0;
+        upper_half = '0;
         repeat (2) @(posedge clk);
-        clear    = 0;
+        clear     = 0;
     endtask
 
     task teardown();
@@ -370,7 +363,6 @@ module fs_control_unit_test;
         int          target_dy = 5;
         int          target_dx = 12;
 
-        // Fill reference blocks with all 255s, then plant a distinct pattern at (target_dy, target_dx)
         for (int sb = 0; sb < 4; sb++) begin
             for (int r = 0; r < 39; r++)
                 for (int c = 0; c < 39; c++)
@@ -380,25 +372,22 @@ module fs_control_unit_test;
                 for (int c = 0; c < 8; c++) begin
                     logic [PEL_W-1:0] val = (sb * 64) + (r * 8) + c;
                     sb_cb[sb][r][c] = val;
-                    sb_rb[sb][target_dy + r][target_dx + c] = val; // Exact match
+                    sb_rb[sb][target_dy + r][target_dx + c] = val;
                 end
             end
         end
 
         calc_expected_results(sb_rb, sb_cb, exp);
 
-        // Drive all 4 sub-blocks of the macroblock
         for (int sb = 0; sb < 4; sb++) begin
             drive_subblock(sb_rb[sb], sb_cb[sb]);
         end
 
-        // Flush pipeline (drive dummy cycles or wait for final 16x16 valid)
         rb_valid = 0;
         cb_valid = 0;
         wait (act_min_16x16_q.size() == 1);
         repeat (5) @(posedge clk);
 
-        // Verify SAD is 0 and MVs point to (target_dy, target_dx)
         `FAIL_UNLESS_EQUAL(exp.min_16x16, 0)
         check_mb_results(exp);
     `SVTEST_END
@@ -414,19 +403,16 @@ module fs_control_unit_test;
 
         calc_expected_results(sb_rb, sb_cb, exp);
 
-        // Drive the 4 sub-blocks of the 16x16 macroblock
         for (int sb = 0; sb < 4; sb++) begin
             drive_subblock(sb_rb[sb], sb_cb[sb]);
         end
 
-        // Drive 2 extra sub-blocks if pipeline requires continuous streaming to flush
         drive_subblock(sb_rb[0], sb_cb[0]);
         drive_subblock(sb_rb[1], sb_cb[1]);
 
         rb_valid = 0;
         cb_valid = 0;
 
-        // Trim queues to first macroblock (4 sub-blocks) if extra blocks flushed more outputs
         while (act_min_8x4_q0.size() > 4) void'(act_min_8x4_q0.pop_back());
         while (act_min_8x4_q1.size() > 4) void'(act_min_8x4_q1.pop_back());
         while (act_min_8x8_q.size()  > 4) void'(act_min_8x8_q.pop_back());

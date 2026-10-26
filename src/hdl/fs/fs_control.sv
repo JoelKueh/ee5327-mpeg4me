@@ -19,24 +19,24 @@ module fs_control (
     input  logic                          upper_half,
 
     // Valid output of the different comparators
-    output logic result_4x4_valid[4],
-    output logic result_4x8_valid[2],
+    output logic result_4x4_valid[2],
+    output logic result_4x8_valid,
     output logic result_8x4_valid[2],
     output logic result_8x8_valid,
     output logic result_16x8_valid,
     output logic result_16x16_valid,
 
     // Minimum SAD output of the different comparators
-    output logic [me_pkg::SAD_4X4_W-1:0] result_min_4x4[4],
-    output logic [me_pkg::SAD_8X4_W-1:0] result_min_4x8[2],
+    output logic [me_pkg::SAD_4X4_W-1:0] result_min_4x4[2],
+    output logic [me_pkg::SAD_8X4_W-1:0] result_min_4x8,
     output logic [me_pkg::SAD_8X4_W-1:0] result_min_8x4[2],
     output logic [me_pkg::SAD_8X8_W-1:0] result_min_8x8,
     output logic [me_pkg::SAD_16X8_W-1:0] result_min_16x8,
     output logic [me_pkg::SAD_16X16_W-1:0] result_min_16x16,
 
     // Motion vector output of the different comaprators
-    output me_pkg::mv_t result_mv_4x4[4],
-    output me_pkg::mv_t result_mv_4x8[2],
+    output me_pkg::mv_t result_mv_4x4[2],
+    output me_pkg::mv_t result_mv_4x8,
     output me_pkg::mv_t result_mv_8x4[2],
     output me_pkg::mv_t result_mv_8x8,
     output me_pkg::mv_t result_mv_16x8,
@@ -52,6 +52,7 @@ module fs_control (
     logic cb_has_data_q, cb_has_data_d;
 
     // Current row and current subblock trackers
+    logic upper_half_q, upper_half_d;
     logic [RB_ROW_IDX_W-1:0] rb_row_idx_q, rb_row_idx_d;
     logic [1:0] sb_idx_8x8_q[3], sb_idx_8x8_d[3];
     logic [1:0] sb_idx_16x16;
@@ -89,7 +90,7 @@ module fs_control (
         .clk(clk),
 
         .bd_valid(bd_valid),
-        .upper_half(upper_half),
+        .upper_half(upper_half_q),
         .cb(cb_q),
         .rb(rb_q),
         .rb_row_idx(rb_row_idx_q),
@@ -237,6 +238,7 @@ module fs_control (
         cb_has_data_d = cb_has_data_q;
         rb_row_idx_d = rb_row_idx_q;
         sb_idx_8x8_d = sb_idx_8x8_q;
+        upper_half_d = upper_half;
 
         // For the first four rows, stream CB and RB simultaneously.
         if (rb_row_idx_q < 4) begin
@@ -251,14 +253,12 @@ module fs_control (
 
         // Drive data if we are not stalled.
         if (bd_valid) begin
-            assert (cb_has_data_q);
-            assert (rb_has_data_q);
             cb_has_data_d = 0;
             rb_has_data_d = 0;
 
             // Update the row index, then the subblock index if necessary.
             rb_row_idx_d = rb_row_idx_q == 34 ? 0 : rb_row_idx_q + 1;
-            if (rb_row_idx_d == 0) sb_idx_8x8_d[0] = sb_idx_8x8_q[0] + 1;
+            if (rb_row_idx_d == 0 && !upper_half_q) sb_idx_8x8_d[0] = sb_idx_8x8_q[0] + 1;
             sb_idx_8x8_d[1] = sb_idx_8x8_q[0];
             sb_idx_8x8_d[2] = sb_idx_8x8_q[1];
         end
@@ -279,9 +279,10 @@ module fs_control (
         if (clear) begin
             rb_q <= '0;
             rb_has_data_q <= '0;
-            for (int i = 0; i < 4; i++) cb_q[i] <= '0;
+            cb_q <= '0;
             cb_has_data_q <= '0;
 
+            upper_half_q <= '0;
             rb_row_idx_q <= '0;
             for (int i = 0; i < 3; i++) sb_idx_8x8_q[i] <= '0;
         end else begin
@@ -290,6 +291,7 @@ module fs_control (
             cb_q <= cb_d;
             cb_has_data_q <= cb_has_data_d;
 
+            upper_half_q <= upper_half_d;
             rb_row_idx_q <= rb_row_idx_d;
             sb_idx_8x8_q <= sb_idx_8x8_d;
         end

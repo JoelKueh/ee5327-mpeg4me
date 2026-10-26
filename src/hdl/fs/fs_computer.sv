@@ -85,10 +85,8 @@ module fs_computer (
         // Update pipeline registers.
         sad_sw_idx_d = sad_sw_idx_q;
         upper_half_d = upper_half_q;
-        rb_row_idx_d = rb_row_idx_q;
+        rb_row_idx_d = rb_row_idx;
         if (bd_valid) begin
-            rb_row_idx_d = rb_row_idx;
-
             upper_half_d[0] = upper_half;
             upper_half_d[1] = upper_half_q[0];
 
