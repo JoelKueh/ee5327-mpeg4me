@@ -85,6 +85,7 @@ module fs_computer_unit_test;
         cb         = b;
         rb_row_idx = row_idx[RB_ROW_IDX_W-1:0];
         #1;
+        // $display("valid=0x%0h 4x4=0x%0h", sad_4x_valid, sad_4x4[0][0]);
         if (record) record_cycle(rec_buf);
         @(posedge clk);
         #0;
@@ -177,6 +178,8 @@ module fs_computer_unit_test;
         int valid_8x_seen = 0;
 
         for (int i = 0; i < rec_buf.size(); i++) begin
+            //$display("valid=0x%0h 4x4=0x%0h", rec_buf[i].sad_4x_valid, rec_buf[i].sad_4x4[0][0]);
+
             // ----------------------------------------------------------
             // Check 4x4 and 4x8 outputs (valid during BOTH halves)
             // ----------------------------------------------------------

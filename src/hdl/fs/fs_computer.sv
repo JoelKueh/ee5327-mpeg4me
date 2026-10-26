@@ -156,7 +156,7 @@ module fs_computer (
         upper_half_q <= upper_half_d;
         sad_sw_idx_q <= sad_sw_idx_d;
         sad_valid_q <= sad_valid_d;
-        rb_row_idx_q <= rb_row_idx;
+        rb_row_idx_q <= rb_row_idx_d;
     end
 
     // Assign the 8x4 and 8x8 output

@@ -22,6 +22,7 @@ module fs_pe_array (
     logic clear_row[4];  // Clear signal for each PE row
 
     logic [3:0][PEL_W-1:0] cb_q[4], cb_d[4];  // Ring of candidate frame 
+    logic [1:0] row_idx_mod_q;
 
     // Instantiate the rows of engines
     genvar row, col;
@@ -50,15 +51,17 @@ module fs_pe_array (
         if (load) cb_d[0] = cb;
 
         // Mux the row output into the sad output
-        sad = pe_sad[row_idx_mod];
+        sad = pe_sad[(row_idx_mod_q+1) % 4];
     end
 
     // Buffer the result output.
     always_ff @(posedge clk) begin
         if (stall) begin
             cb_q <= cb_q;
+            row_idx_mod_q <= row_idx_mod_q;
         end else begin
             cb_q <= cb_d;
+            row_idx_mod_q <= row_idx_mod;
         end
     end
 
