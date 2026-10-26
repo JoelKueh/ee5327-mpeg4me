@@ -1,0 +1,85 @@
+
+Warning-[LNX_OS_VERUN] Unsupported Linux version
+  Linux version 'Rocky Linux release 8.10 (Green Obsidian)' is not supported 
+  on 'x86_64' officially, assuming linux compatibility by default. Set 
+  VCS_ARCH_OVERRIDE to linux or suse32 to override.
+  Please refer to release notes for information on supported platforms.
+
+
+Warning-[DEBUG_DEP] Option will be deprecated
+  The option '-debug_all' will be deprecated in a future release.  Please use 
+  '-debug_acc+all+dmptf -debug_region+cell+encrypt' instead.
+
+Command: vcs -full64 -Mupdate +v2k -sverilog -timescale=1ns/1ns -work build/work \
+-kdb -debug_all -l compile.log /home/kuehn348/src/ee5327/ee5327-mpeg4me/src/hdl/me_pkg.sv \
+/home/kuehn348/src/ee5327/ee5327-mpeg4me/src/hdl/sram_if.sv /home/kuehn348/src/ee5327/ee5327-mpeg4me/src/hdl/sad_result_if.sv \
+/home/kuehn348/src/ee5327/ee5327-mpeg4me/src/hdl/fs/fs_pe.sv /home/kuehn348/src/ee5327/ee5327-mpeg4me/src/hdl/fs/fs_pe_array.sv \
+/home/kuehn348/src/ee5327/ee5327-mpeg4me/src/hdl/fs/fs_computer.sv /home/kuehn348/src/ee5327/ee5327-mpeg4me/src/hdl/fs/fs_combiner.sv \
+/home/kuehn348/src/ee5327/ee5327-mpeg4me/src/hdl/fs/fs_comparator.sv /home/kuehn348/src/ee5327/ee5327-mpeg4me/src/hdl/fs/fs_control.sv \
+/home/kuehn348/src/ee5327/ee5327-mpeg4me/src/hdl/me_top.sv -top me_top
+                         Chronologic VCS (TM)
+      Version S-2021.09-SP2-7_Full64 -- Fri Oct 23 19:28:53 2026
+
+                    Copyright (c) 1991 - 2023 Synopsys, Inc.
+   This software and the associated documentation are proprietary to Synopsys,
+ Inc. This software may only be used in accordance with the terms and conditions
+ of a written license agreement with Synopsys, Inc. All other use, reproduction,
+   or distribution of this software is strictly prohibited.  Licensed Products
+     communicate with Synopsys servers for the purpose of providing software
+    updates, detecting software piracy and verifying that customers are using
+    Licensed Products in conformity with the applicable License Key for such
+  Licensed Products. Synopsys will use information gathered in connection with
+    this process to deliver software updates and pursue software pirates and
+                                   infringers.
+
+ Inclusivity & Diversity - Visit SolvNetPlus to read the "Synopsys Statement on
+            Inclusivity and Diversity" (Refer to article 000036315 at
+                        https://solvnetplus.synopsys.com)
+
+
+Warning-[DEBUG_DEP] Option will be deprecated
+  The option '-debug_all' will be deprecated in a future release.  Please use 
+  '-debug_acc+all -debug_region+cell+encrypt' instead.
+
+Parsing design file '/home/kuehn348/src/ee5327/ee5327-mpeg4me/src/hdl/me_pkg.sv'
+Parsing design file '/home/kuehn348/src/ee5327/ee5327-mpeg4me/src/hdl/sram_if.sv'
+Parsing design file '/home/kuehn348/src/ee5327/ee5327-mpeg4me/src/hdl/sad_result_if.sv'
+Parsing design file '/home/kuehn348/src/ee5327/ee5327-mpeg4me/src/hdl/fs/fs_pe.sv'
+Parsing design file '/home/kuehn348/src/ee5327/ee5327-mpeg4me/src/hdl/fs/fs_pe_array.sv'
+Parsing design file '/home/kuehn348/src/ee5327/ee5327-mpeg4me/src/hdl/fs/fs_computer.sv'
+Parsing design file '/home/kuehn348/src/ee5327/ee5327-mpeg4me/src/hdl/fs/fs_combiner.sv'
+Parsing design file '/home/kuehn348/src/ee5327/ee5327-mpeg4me/src/hdl/fs/fs_comparator.sv'
+Parsing design file '/home/kuehn348/src/ee5327/ee5327-mpeg4me/src/hdl/fs/fs_control.sv'
+Parsing design file '/home/kuehn348/src/ee5327/ee5327-mpeg4me/src/hdl/me_top.sv'
+Top Level Modules:
+       me_top
+TimeScale is 1 ns / 1 ns
+
+Error-[UPIMI-E] Undefined port in module instantiation
+/home/kuehn348/src/ee5327/ee5327-mpeg4me/src/hdl/fs/fs_computer.sv, 53
+  Port "lb" is not defined in module 'fs_pe_array' defined in 
+  "/home/kuehn348/src/ee5327/ee5327-mpeg4me/src/hdl/fs/fs_pe_array.sv", 7
+  Module instance: fs_pe_array pe_array_dl( .clk (clk),  .stall (stall),  
+  .load ((rb_row_idx < 8)),  .row_idx_mod (rb_row_idx[1:0]),  .rb 
+  (rb_sr_q[3][(me_pkg::WINDOW_SIZE + 2):0 ...
+
+
+Warning-[TFIPC] Too few instance port connections
+/home/kuehn348/src/ee5327/ee5327-mpeg4me/src/hdl/fs/fs_computer.sv, 53
+fs_computer, "fs_pe_array pe_array_dl( .clk (clk),  .stall (stall),  .load ((rb_row_idx < 8)),  .row_idx_mod (rb_row_idx[1:0]),  .rb (rb_sr_q[3][(me_pkg::WINDOW_SIZE + 2):0]),  .lb (cb[0:3]),  .sad (sad_4x4[2]));"
+  The above instance has fewer port connections than the module definition.
+  Please use '+lint=TFIPC-L' to print out detailed information of unconnected 
+  ports.
+
+
+Error-[UPIMI-E] Undefined port in module instantiation
+/home/kuehn348/src/ee5327/ee5327-mpeg4me/src/hdl/fs/fs_control.sv, 92
+  Port "clear" is not defined in module 'fs_computer' defined in 
+  "/home/kuehn348/src/ee5327/ee5327-mpeg4me/src/hdl/fs/fs_computer.sv", 10
+  Module instance: fs_computer computer( .clk (clk),  .clear ((rb_row_idx_q ==
+  0)),  .stall (stall_d[0]),  .cb (cb_q),  .rb (rb),  .rb_row_idx 
+  (rb_row_idx_q),  .sad_8x4 (sad_8x4 ...
+
+2 warnings
+2 errors
+CPU time: .241 seconds to compile
