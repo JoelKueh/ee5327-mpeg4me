@@ -1,5 +1,5 @@
 ###################################################################
-# This variable needs to be modified before running this script:
+# These environment variables must be set before runnning
 set DESIGN_NAME $::env(DESIGN_NAME)
 set TOP_MODULE  $::env(TOP_MODULE)
 
@@ -32,7 +32,7 @@ set_app_var cache_dir_chmod_octal 777
 
 ################################
 # Add SRAM macro library to link_library
-lappend link_library /home/kuehn348/src/ee5327/ee5327-mpeg4me/synth/lib/sram_macros.db
+lappend link_library ./lib/sram_macros_lib.db
 
 ################################
 # STEP: Analyze and elaborate the design, read the design constraints
@@ -88,9 +88,9 @@ set_dont_touch_network [get_clocks]
 
 ###############################
 # Set wire load model and operating condition
-#set_wire_load_model -name 8000 -library [get_libs]
-#set_operating_conditions -analysis_type bc_wc -max tt1p05v125c
+set_wire_load_model -name 8000 -library [get_libs]
 set_operating_conditions -analysis_type bc_wc -max tt0p8v25c
+set_critical_range 0.05 [current_design]
 
 ###############################
 # path group setup
@@ -101,15 +101,77 @@ group_path -name comb -from [all_inputs] -to [all_outputs]
 group_path -name reg2reg -from [all_registers -clock_pins] -to [all_registers -data_pins]
 
 ###############################
+# RTL Test DRC
+set_scan_configuration -style multiplexed_flip_flop
+set_dft_signal -view existing_dft -type ScanClock -timing {45 55} -port clk
+create_test_protocol -infer_asynch -infer_clock
+dft_drc -verbose 				> ${REPORT_DIR}/${DESIGN_NAME}.RTLTestDRC.rpt
+write_test_protocol -output ${OUT_DIR}/${DESIGN_NAME}_pre_dft.spf
+
+###############################
 # STEP: Compile
 set elapsed_time [expr { ([clock seconds] - $start_time) / 60.0} ]
 puts [format "##### Running Compile. Runtime: %.2f mins #####" $elapsed_time]
-compile_ultra -no_autoungroup
+
+###############################
+# set fsm extraction and optimization directive
+set_app_var fsm_auto_inferring true
+set_app_var fsm_enable_state_minimization true
+set_fsm_minimize true
+set_fsm_encoding_style binary
+
+compile_ultra -scan -no_autoungroup
+write_file -format verilog -hierarchy -output ${OUT_DIR}/${DESIGN_NAME}_pre_dft.vg
+
+# Restore relaxed uncertainty before generating reports.
+#set_clock_uncertainty -setup 0.05 [get_clocks CLK]
+
+##############################
+# STEP: Configure Scan Chain and Insert DFT Logic
+create_port -direction "in"  {test_si test_se}
+create_port -direction "out" {test_so}
+
+set_driving_cell -lib_cell BUFFD2BWP20P90 -input_transition_rise 0.1 -input_transition_fall 0.1 [get_ports {test_si test_se}]
+set_load [expr {[load_of [get_lib_pins */BUFFD2BWP20P90/I]] * 4}] [get_ports test_so]
+
+set_input_delay  0.08 -clock [get_clocks CLK] [get_ports {test_si test_se}]
+set_output_delay 0.06 -clock [get_clocks CLK] [get_ports test_so]
+
+set_dft_configuration -connect_mux_controls enable
+set_scan_configuration -respect_async_ctrls true -replace false
+
+set_dft_signal -view spec -type ScanDataIn  -port test_si
+set_dft_signal -view spec -type ScanDataOut -port test_so
+set_dft_signal -view spec -type ScanEnable  -port test_se
+create_test_protocol -infer_asynch -infer_clock
+
+dft_drc -verbose                > ${REPORT_DIR}/${DESIGN_NAME}.PreDFTDRC.rpt
+insert_dft
+dft_drc -verbose -coverage      > ${REPORT_DIR}/${DESIGN_NAME}.PostDFTDRC.rpt
+
+# Protect high-fanout test_se after scan stitch and lock to functional mode for incremental compile
+set_dont_touch_network [get_ports test_se]
+set_ideal_network      [get_ports test_se]
+set_case_analysis 0    [get_ports test_se]
+
+##############################
+# STEP: Incremental Compile
+set elapsed_time [expr { ([clock seconds] - $start_time) / 60.0} ]
+puts [format "##### Running Incremental Compile. Runtime: %.2f mins #####" $elapsed_time]
+compile_ultra -incremental -scan -no_autoungroup
 
 ##############################
 # STEP: Outputs and Reports
 set elapsed_time [expr { ([clock seconds] - $start_time) / 60.0} ]
 puts [format "##### Running Outputs and Reports. Runtime: %.2f mins #####" $elapsed_time]
+
+###############################
+# path group re-setup - some path graph may have become invalid during design compile
+set non_clk_inputs [remove_from_collection [all_inputs] [get_ports {clk test_se}]]
+group_path -name inputs -from $non_clk_inputs
+group_path -name output -to [all_outputs]
+group_path -name comb -from [all_inputs] -to [all_outputs]
+group_path -name reg2reg -from [all_registers -clock_pins] -to [all_registers -data_pins]
 
 ##############################
 # change names
@@ -127,6 +189,7 @@ define_name_rules reg_names \
 
 change_names -hierarchy -verbose -rules reg_names > ${LOG_DIR}/change_names_reg.log
 change_names -hierarchy -verbose -rules standard_names > ${LOG_DIR}/change_names_standard.log
+write_test_protocol -output ${OUT_DIR}/${DESIGN_NAME}.spf
 
 ##############################
 # Outputs
@@ -167,12 +230,14 @@ redirect -append -file ${REPORT_DIR}/${DESIGN_NAME}.area.rpt {
   printenv LOGNAME
 }
 report_reference -hierarchy -nosplit        > ${REPORT_DIR}/${DESIGN_NAME}.ref.rpt
-report_qor                                  > ${REPORT_DIR}/${DESIGN_NAME}.qor.rpt
+report_qor -significant_digits 4            > ${REPORT_DIR}/${DESIGN_NAME}.qor.rpt
 report_power -hierarchy -verbose -nosplit   > ${REPORT_DIR}/${DESIGN_NAME}.power.rpt
 redirect -append -file ${REPORT_DIR}/${DESIGN_NAME}.power.rpt {printenv LOGNAME}
-report_constraint -all_violators -nosplit   > ${REPORT_DIR}/${DESIGN_NAME}.constraint.rpt
+report_constraint -all_violators -significant_digits 4 -nosplit > ${REPORT_DIR}/${DESIGN_NAME}.constraint.rpt
 check_design                                > ${REPORT_DIR}/${DESIGN_NAME}.check_design.rpt
 check_timing                                > ${REPORT_DIR}/${DESIGN_NAME}.check_timing.rpt
+report_fsm					                > ${REPORT_DIR}/${DESIGN_NAME}.fsm.rpt
+redirect -append -file ${REPORT_DIR}/${DESIGN_NAME}.fsm.rpt {printenv LOGNAME}
 
 foreach_in_collection group [get_path_groups] {
   set group_name [get_object_name $group]
@@ -182,7 +247,7 @@ foreach_in_collection group [get_path_groups] {
 		-nosplit \
 		-capacitance \
 		-transition_time \
-		-significant_digits 2 \
+		-significant_digits 4 \
 		-input_pins -nets -max_paths 20 \
 		-group $group_name
     }
