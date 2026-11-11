@@ -8,11 +8,12 @@
 
 module fs_computer (
     input logic clk,   // The primary clock
-    input logic stall, // Pipelined stall signal
+    input logic stall, // Stall signal
 
-    input logic upper_half,  // Computing the upper half of a subblock or lower?
     input logic [7:0][me_pkg::PEL_W-1:0] cb,  // Current block input
     input logic [me_pkg::WINDOW_SIZE+6:0][me_pkg::PEL_W-1:0] rb,  // Reference block input stream
+
+    input logic upper_half,  // Computing the upper half of a subblock or lower?
     input logic [me_pkg::RB_ROW_IDX_W-1:0] rb_row_idx,  // Reference block search window offset
 
     output logic sad_4x_valid, // SAD data valid signal
@@ -27,6 +28,10 @@ module fs_computer (
 
     import me_pkg::*;
 
+    // Buffer only the reference block at the comptuer level
+    // Buffer control signals and the cb at the array/row level
+    logic [WINDOW_SIZE+6:0][PEL_W-1:0] rb_q, rb_d;
+
     logic [SAD_4X4_W-1:0] sad_4x4_q[2][WINDOW_SIZE], sad_4x4_d[2][WINDOW_SIZE];
     logic [SAD_8X4_W-1:0] sad_4x8_q[WINDOW_SIZE], sad_4x8_d[WINDOW_SIZE];
     logic [SAD_8X4_W-1:0] sad_8x4_q[2][WINDOW_SIZE], sad_8x4_d[2][WINDOW_SIZE];
@@ -40,21 +45,21 @@ module fs_computer (
     // Instantiate 4 4x4_SAD PE arrays arranged as a full 8x8 block
     fs_pe_array pe_array_l (
         .clk(clk),
-        .stall(stall),
         .load(rb_row_idx < 4),
-        .row_idx_mod(rb_row_idx[1:0]),
-        .rb(rb[WINDOW_SIZE+2:0]),
-        .cb(cb[3:0]),
+        .stall_next(stall),
+        .row_idx_mod_next(rb_row_idx[1:0]),
+        .rb(rb_q[WINDOW_SIZE+2:0]),
+        .cb_next(cb[3:0]),
         .sad(sad_4x4_d[0])
     );
 
     fs_pe_array pe_array_r (
         .clk(clk),
-        .stall(stall),
         .load(rb_row_idx < 4),
-        .row_idx_mod(rb_row_idx[1:0]),
-        .rb(rb[WINDOW_SIZE+6:4]),
-        .cb(cb[7:4]),
+        .stall_next(stall),
+        .row_idx_mod_next(rb_row_idx[1:0]),
+        .rb(rb_q[WINDOW_SIZE+6:4]),
+        .cb_next(cb[7:4]),
         .sad(sad_4x4_d[1])
     );
 
@@ -119,6 +124,9 @@ module fs_computer (
     end
 
     always_comb begin
+        // Buffer only the reference block data
+        rb_d = rb;
+
         // PE Array has valid output after 4th row (sad_4x4_d has valid data)
         stage0_valid_d  = (rb_row_idx >= 3);
         upper_half_d[0] = upper_half;
@@ -154,6 +162,7 @@ module fs_computer (
             sad_sw_idx_q   <= sad_sw_idx_d;
             sad_valid_q    <= sad_valid_d;
             stage0_valid_q <= stage0_valid_d;
+            rb_q           <= rb_d;
         end
     end
 

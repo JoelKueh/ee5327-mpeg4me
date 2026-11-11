@@ -5,13 +5,13 @@
 //
 
 module fs_pe_array (
-    input logic       clk,         // The primary clock
-    input logic       stall,       // PE array stall signal
-    input logic       load,        // Load cb_q[0] from input?
-    input logic [1:0] row_idx_mod, // Modulus of the row being served in rb
+    input logic       clk,              // The primary clock
+    input logic       load,             // Load cb_q[0] from input?
+    input logic       stall_next,       // Should the PE array stall next cycle
+    input logic [1:0] row_idx_mod_next, // Mod of the row served on rb next cycle
 
-    input logic [me_pkg::WINDOW_SIZE+2:0][me_pkg::PEL_W-1:0] rb,  // Reference block input
-    input logic [                    3:0][me_pkg::PEL_W-1:0] cb,  // Current block input
+    input logic [me_pkg::WINDOW_SIZE+2:0][me_pkg::PEL_W-1:0] rb,       // Reference block input
+    input logic [                    3:0][me_pkg::PEL_W-1:0] cb_next,  // Next current block input
 
     output logic [me_pkg::SAD_4X4_W-1:0] sad[me_pkg::WINDOW_SIZE]
 );
@@ -19,10 +19,11 @@ module fs_pe_array (
     import me_pkg::*;
 
     logic [SAD_4X4_W-1:0] pe_sad[4][WINDOW_SIZE];  // Results from each PE row
-    logic clear_row[4];  // Clear signal for each PE row
+    logic clear_q[4], clear_d[4];                  // Pipelined row clear signal
+    logic stall_q[4], stall_d[4];                  // Pipelined row stall signal
 
     logic [3:0][PEL_W-1:0] cb_q[4], cb_d[4];  // Ring of candidate frame 
-    logic [1:0] row_idx_mod_q;
+    logic [1:0] row_select_q, row_select_d;   // Row select mux signal
 
     // Instantiate the rows of engines
     genvar row, col;
@@ -31,10 +32,10 @@ module fs_pe_array (
             for (col = 0; col < WINDOW_SIZE; col++) begin : pe_array_col
                 fs_pe pe (
                     .clk(clk),
-                    .stall(stall),
-                    .clear(clear_row[row]),
+                    .stall(stall_q[row]),
+                    .clear(clear_q[row]),
                     .rb(rb[col+3:col]),
-                    .cb(cb_d[row]),
+                    .cb(cb_q[row]),
                     .sad(pe_sad[row][col])
                 );
             end
@@ -43,26 +44,30 @@ module fs_pe_array (
 
     always_comb begin
         // Clear rows when a row is receiving data for a new SAD
-        for (int i = 0; i < 4; i++) clear_row[i] = '0;
-        clear_row[row_idx_mod] = '1;
+        for (int i = 0; i < 4; i++) clear_d[i] = '0;
+        clear_d[row_idx_mod_next] = '1;
+        row_select_d = row_idx_mod_next;
+
+        // Stall one cycle after receiving stall_next 
+        for (int i = 0; i < 4; i++) stall_d[i] = stall_next;
 
         // Advance the CF buffer
         for (int i = 0; i < 4; i++) cb_d[(i+1)%4] = cb_q[i];
-        if (load) cb_d[0] = cb;
+        if (load) cb_d[0] = cb_next;
 
         // Mux the row output into the sad output
-        sad = pe_sad[(row_idx_mod_q+1) % 4];
+        sad = pe_sad[row_select_q];
     end
 
     // Buffer the result output.
     always_ff @(posedge clk) begin
-        if (stall) begin
-            cb_q <= cb_q;
-            row_idx_mod_q <= row_idx_mod_q;
-        end else begin
+        if (!stall_next) begin
             cb_q <= cb_d;
-            row_idx_mod_q <= row_idx_mod;
+            row_select_q <= row_select_d;
+            clear_q <= clear_d;
         end
+
+        stall_q <= stall_d;
     end
 
 endmodule
