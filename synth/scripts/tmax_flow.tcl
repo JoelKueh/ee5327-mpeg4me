@@ -14,6 +14,11 @@ read_netlist ./lib/sram_atpg_model.v -library
 read_netlist ./outputs/h264_dft/h264_dft.vg
 run_build_model me_top
 
+add_nofaults -module sram_32x384
+add_nofaults -module sram_32x416
+add_nofaults -module sram_32x448
+add_nofaults -module sram_32x480
+
 ###################################################################
 # Run
 read_test_protocol ./outputs/h264_dft.spf

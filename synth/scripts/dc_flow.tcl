@@ -73,6 +73,14 @@ set_fix_multiple_port_nets -all -buffer_constants
 set_app_var uniquify_keep_original_design true
 
 ###############################
+# Lock SRAM Macros so DC treats them as untouched hard macros
+set sram_insts [get_cells -hierarchical -filter "ref_name =~ sram_32x*"]
+if {[sizeof_collection $sram_insts] > 0} {
+  puts "==> INFORMATION: Setting dont_touch on [sizeof_collection $sram_insts] SRAM macro instances."
+  set_dont_touch $sram_insts
+}
+
+###############################
 # Read IO, Loading and timing constraints
 if {[file exists ./inputs/constraints/${TOP_MODULE}.constraints.tcl]} {
   puts "==>INFORMATION: Sourcing the design constraints file"
@@ -87,78 +95,110 @@ if {[file exists ./inputs/constraints/${TOP_MODULE}.constraints.tcl]} {
 set_dont_touch_network [get_clocks]
 
 ###############################
-# Set wire load model and operating condition
-set_wire_load_model -name 8000 -library [get_libs]
+# Set operating condition and DRC targets
+set_app_var auto_wire_load_selection true
+set_wire_load_mode top
 set_operating_conditions -analysis_type bc_wc -max tt0p8v25c
-set_critical_range 0.05 [current_design]
+set_critical_range 0.1 [current_design]
+set_max_fanout 32 [current_design]
+set_max_transition 0.25 [current_design]
 
 ###############################
-# path group setup
-set non_clk_inputs [remove_from_collection [all_inputs] [get_ports clk]]
-group_path -name inputs -from $non_clk_inputs
-group_path -name output -to [all_outputs]
-group_path -name comb -from [all_inputs] -to [all_outputs]
+# Create DFT Ports Early & Hook Up SRAM DFT_BYPASS Pins
+create_port -direction "in"  {test_si test_se test_tm}
+create_port -direction "out" {test_so}
+
+# Automatically punch and connect test_tm to all SRAM DFT_BYPASS pins across hierarchies
+set sram_bypass_pins [get_pins -hierarchical */DFT_BYPASS]
+if {[sizeof_collection $sram_bypass_pins] > 0} {
+  foreach_in_collection bp_pin $sram_bypass_pins {
+    set conn_net [all_connected $bp_pin]
+    if {[sizeof_collection $conn_net] > 0} {
+      disconnect_net $conn_net $bp_pin
+    }
+    connect_pin -from [get_ports test_tm] -to $bp_pin -port_name test_tm
+  }
+}
+
+###############################
+# path group setup (after test ports exist so they are excluded)
+set non_clk_inputs [remove_from_collection [all_inputs] [get_ports {clk test_se test_tm}]]
+group_path -name inputs  -from $non_clk_inputs
+group_path -name output  -to [all_outputs]
+group_path -name comb    -from $non_clk_inputs -to [all_outputs]
 group_path -name reg2reg -from [all_registers -clock_pins] -to [all_registers -data_pins]
 
 ###############################
-# RTL Test DRC
+# Clock Gating Style (Ensures -gate_clock ICG cells have a TE pin for DFT)
+set_clock_gating_style -sequential_cell latch \
+  -positive_edge_logic {integrated} \
+  -control_point before \
+  -control_signal scan_enable
+
+###############################
+# RTL Test DRC (Run BEFORE setting case_analysis 0 on test_se / test_tm)
 set_scan_configuration -style multiplexed_flip_flop
 set_dft_signal -view existing_dft -type ScanClock -timing {45 55} -port clk
+set_dft_signal -view existing_dft -type TestMode  -active_state 1 -port test_tm
 create_test_protocol -infer_asynch -infer_clock
-dft_drc -verbose 				> ${REPORT_DIR}/${DESIGN_NAME}.RTLTestDRC.rpt
+dft_drc -verbose > ${REPORT_DIR}/${DESIGN_NAME}.RTLTestDRC.rpt
 write_test_protocol -output ${OUT_DIR}/${DESIGN_NAME}_pre_dft.spf
+
+# Lock test_se and test_tm to 0 during initial functional compile
+set_case_analysis 0 [get_ports {test_se test_tm}]
 
 ###############################
 # STEP: Compile
 set elapsed_time [expr { ([clock seconds] - $start_time) / 60.0} ]
 puts [format "##### Running Compile. Runtime: %.2f mins #####" $elapsed_time]
 
-###############################
-# set fsm extraction and optimization directive
 set_app_var fsm_auto_inferring true
 set_app_var fsm_enable_state_minimization true
 set_fsm_minimize true
-set_fsm_encoding_style binary
 
-compile_ultra -scan -no_autoungroup
+compile_ultra -gate_clock -scan -no_autoungroup
 write_file -format verilog -hierarchy -output ${OUT_DIR}/${DESIGN_NAME}_pre_dft.vg
-
-# Restore relaxed uncertainty before generating reports.
-#set_clock_uncertainty -setup 0.05 [get_clocks CLK]
 
 ##############################
 # STEP: Configure Scan Chain and Insert DFT Logic
-create_port -direction "in"  {test_si test_se}
-create_port -direction "out" {test_so}
+# Remove case_analysis temporarily so DFT DRC and insert_dft see test_se and test_tm active
+remove_case_analysis [get_ports {test_se test_tm}]
 
-set_driving_cell -lib_cell BUFFD2BWP20P90 -input_transition_rise 0.1 -input_transition_fall 0.1 [get_ports {test_si test_se}]
+set_driving_cell -lib_cell BUFFD2BWP20P90 -input_transition_rise 0.1 -input_transition_fall 0.1 [get_ports {test_si test_se test_tm}]
 set_load [expr {[load_of [get_lib_pins */BUFFD2BWP20P90/I]] * 4}] [get_ports test_so]
 
-set_input_delay  0.08 -clock [get_clocks CLK] [get_ports {test_si test_se}]
-set_output_delay 0.06 -clock [get_clocks CLK] [get_ports test_so]
+set_input_delay  0.08 -clock [get_clocks *] [get_ports {test_si test_se test_tm}]
+set_output_delay 0.06 -clock [get_clocks *] [get_ports test_so]
 
-set_dft_configuration -connect_mux_controls enable
+# Enable automatic connection of both mux controls AND clock-gating TE pins
+set_dft_configuration -connect_mux_controls enable -connect_clock_gating enable
 set_scan_configuration -respect_async_ctrls true -replace false
 
-set_dft_signal -view spec -type ScanDataIn  -port test_si
-set_dft_signal -view spec -type ScanDataOut -port test_so
-set_dft_signal -view spec -type ScanEnable  -port test_se
+set_dft_signal -view existing_dft -type ScanClock  -timing {45 55} -port clk
+set_dft_signal -view existing_dft -type TestMode   -active_state 1 -port test_tm
+set_dft_signal -view spec         -type ScanDataIn  -port test_si
+set_dft_signal -view spec         -type ScanDataOut -port test_so
+set_dft_signal -view spec         -type ScanEnable  -port test_se
+set_dft_signal -view spec         -type TestMode    -active_state 1 -port test_tm
+
 create_test_protocol -infer_asynch -infer_clock
 
-dft_drc -verbose                > ${REPORT_DIR}/${DESIGN_NAME}.PreDFTDRC.rpt
+dft_drc -verbose           > ${REPORT_DIR}/${DESIGN_NAME}.PreDFTDRC.rpt
 insert_dft
-dft_drc -verbose -coverage      > ${REPORT_DIR}/${DESIGN_NAME}.PostDFTDRC.rpt
+dft_drc -verbose -coverage > ${REPORT_DIR}/${DESIGN_NAME}.PostDFTDRC.rpt
 
-# Protect high-fanout test_se after scan stitch and lock to functional mode for incremental compile
-set_dont_touch_network [get_ports test_se]
-set_ideal_network      [get_ports test_se]
-set_case_analysis 0    [get_ports test_se]
+# Write out the test protocol (.spf) for TetraMAX BEFORE re-applying case_analysis 0!
+write_test_protocol -output ${OUT_DIR}/${DESIGN_NAME}_post_dft.spf
+
+set_dont_touch_network [get_ports {test_se test_tm}]
+set_ideal_network      [get_ports {test_se test_tm}]
+set_case_analysis 0    [get_ports {test_se test_tm}]
 
 ##############################
 # STEP: Incremental Compile
 set elapsed_time [expr { ([clock seconds] - $start_time) / 60.0} ]
 puts [format "##### Running Incremental Compile. Runtime: %.2f mins #####" $elapsed_time]
-compile_ultra -incremental -scan -no_autoungroup
+compile_ultra -incremental -gate_clock -scan -no_autoungroup
 
 ##############################
 # STEP: Outputs and Reports
@@ -167,10 +207,10 @@ puts [format "##### Running Outputs and Reports. Runtime: %.2f mins #####" $elap
 
 ###############################
 # path group re-setup - some path graph may have become invalid during design compile
-set non_clk_inputs [remove_from_collection [all_inputs] [get_ports {clk test_se}]]
+set non_clk_inputs [remove_from_collection [all_inputs] [get_ports {clk test_se test_tm}]]
 group_path -name inputs -from $non_clk_inputs
 group_path -name output -to [all_outputs]
-group_path -name comb -from [all_inputs] -to [all_outputs]
+group_path -name comb -from $non_clk_inputs -to [all_outputs]
 group_path -name reg2reg -from [all_registers -clock_pins] -to [all_registers -data_pins]
 
 ##############################
@@ -189,7 +229,10 @@ define_name_rules reg_names \
 
 change_names -hierarchy -verbose -rules reg_names > ${LOG_DIR}/change_names_reg.log
 change_names -hierarchy -verbose -rules standard_names > ${LOG_DIR}/change_names_standard.log
+remove_case_analysis [get_ports {test_se test_tm}]
+dft_drc -verbose -coverage > ${REPORT_DIR}/${DESIGN_NAME}.FinalDFTDRC.rpt
 write_test_protocol -output ${OUT_DIR}/${DESIGN_NAME}.spf
+set_case_analysis 0 [get_ports {test_se test_tm}]
 
 ##############################
 # Outputs
