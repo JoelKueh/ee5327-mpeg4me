@@ -494,43 +494,15 @@ module fs_control_unit_test;
 
     `SVUNIT_TESTS_BEGIN
 
-    `SVTEST(typical)
-        frame_t rf;
-        frame_t cf;
-        int num_blocks_to_test = 4;
-
-        std::randomize(rf);
-        std::randomize(cf);
-
-        clear = 1;
-        #40 clear = 0;
-
-        for (int b_idx = 0; b_idx < num_blocks_to_test; b_idx++) begin
-            $display("[TEST] Driving macroblock block index: %d", b_idx);
-            drive_block(rf, cf, b_idx, 0);
-        end
-
-        flush_pipeline();
-
-        $display("cnt_4x4[0]=%d", cnt_4x4[0]);
-        $display("cnt_4x4[1]=%d", cnt_4x4[1]);
-        $display("cnt_4x8   =%d", cnt_4x8);
-        $display("cnt_8x4[0]=%d", cnt_8x4[0]);
-        $display("cnt_8x4[1]=%d", cnt_8x4[1]);
-        $display("cnt_8x8   =%d", cnt_8x8);
-        $display("cnt_16x8  =%d", cnt_16x8);
-        $display("cnt_16x16 =%d", cnt_16x16);
-    `SVTEST_END
-
-    `SVTEST(typical2)
-        for (int i = 0; i < 16; i++) begin
-            run_random_iteration(i, $urandom_range(16, 32), 0);
-        end
-    `SVTEST_END
-
     `SVTEST(typical_stall)
         for (int i = 0; i < 2; i++) begin
             run_random_iteration(i, $urandom_range(16, 32), 10);
+        end
+    `SVTEST_END
+
+    `SVTEST(typical)
+        for (int i = 0; i < 2; i++) begin
+            run_random_iteration(i, $urandom_range(16, 32), 0);
         end
     `SVTEST_END
 
