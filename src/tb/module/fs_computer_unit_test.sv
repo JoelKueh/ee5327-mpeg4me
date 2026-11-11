@@ -18,6 +18,7 @@ module fs_computer_unit_test;
     typedef logic [7:0][PEL_W-1:0] cb_row_t;
 
     logic                              clk;
+    logic                              clear;
     logic                              stall;
     logic                              upper_half;
     logic [7:0][PEL_W-1:0]             cb;
@@ -79,8 +80,10 @@ module fs_computer_unit_test;
         input logic up_half,
         input rb_row_t r,
         input cb_row_t b,
-        input bit record
+        input bit record,
+        input logic c = 1'b0
     );
+        clear      = c;
         stall      = s;
         upper_half = up_half;
         rb         = r;
@@ -305,13 +308,18 @@ module fs_computer_unit_test;
 
     task setup();
         svunit_ut.setup();
-        stall      = '1;
+        clear      = '1;
+        stall      = '0;
         upper_half = '0;
         rb         = '0;
         rb_row_idx = '0;
         cb         = '0;
-        // Flush pipeline state (6 cycles) before each test
-        repeat (6) @(posedge clk);
+        // Pulse clear and flush pipeline state before each test
+        @(posedge clk);
+        #0;
+        clear      = 1'b0;
+        repeat (5) @(posedge clk);
+        #0;
     endtask
 
     task teardown();
@@ -320,7 +328,7 @@ module fs_computer_unit_test;
 
     `SVUNIT_TESTS_BEGIN
 
-    `SVTEST(clear)
+    `SVTEST(test_clear)
         rb_row_t rb_buf[$];
         cb_row_t cb_buf[$];
         pel_arr_unpacked_t rb_unp;
@@ -332,8 +340,14 @@ module fs_computer_unit_test;
         rb_unp = fs_tb_common_pkg::pel_unpack#(16, WINDOW_SIZE+7)::f(rb_buf);
         cb_unp = fs_tb_common_pkg::pel_unpack#(8, 8)::f(cb_buf);
 
-        drive_cycle(rec_buf, 0, 0, 1'b1, 'x, 'x, 0);
-        drive_cycle(rec_buf, 1, 0, 1'b1, 'x, 'x, 0);
+        // Start a partial pass deep enough (row_idx 0..4) to populate stage0/stage1 valid
+        for (int i = 0; i <= 4; i++) begin
+            drive_cycle(rec_buf, i, 0, 1'b1, '0, '0, 0, 1'b0);
+        end
+        // Assert clear = 1 for one cycle to flush in-flight valid stages
+        drive_cycle(rec_buf, 0, 0, 1'b1, 'x, 'x, 0, 1'b1);
+
+        // Now run the real stream and record every cycle
         drive_subblock_stream(rec_buf, rb_buf, cb_buf, 0, 1);
 
         check(rec_buf, rb_unp, cb_unp, 9);

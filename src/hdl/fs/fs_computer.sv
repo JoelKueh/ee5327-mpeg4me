@@ -8,6 +8,7 @@
 
 module fs_computer (
     input logic clk,   // The primary clock
+    input logic clear, // Synchonous clear signal
     input logic stall, // Stall signal
 
     input logic [7:0][me_pkg::PEL_W-1:0] cb,  // Current block input
@@ -28,14 +29,8 @@ module fs_computer (
 
     import me_pkg::*;
 
-    // Buffer only the reference block at the comptuer level
-    // Buffer control signals and the cb at the array/row level
-
-
     // Stage 0: Buffered Reference Block
     logic [WINDOW_SIZE+6:0][PEL_W-1:0] rb_q, rb_d;
-
-    // Stage 1: Internal PE Array Buffers
 
     // Stage 2: Buffered SAD outputs
     logic [SAD_4X4_W-1:0] sad_4x4_q[2][WINDOW_SIZE], sad_4x4_d[2][WINDOW_SIZE];
@@ -44,12 +39,9 @@ module fs_computer (
     logic [SAD_8X8_W-1:0] sad_8x8_q[WINDOW_SIZE], sad_8x8_d[WINDOW_SIZE];
 
     // Pipeline control tracking across S0, S1 (PE), and S2 (Output)
-
     logic upper_half_q[3], upper_half_d[3];
     logic [SW_IDX_W-1:0] sad_sw_idx_q[3], sad_sw_idx_d[3];
-    logic stage0_valid_q, stage0_valid_d;
-    logic stage1_valid_q, stage1_valid_d;
-    logic sad_valid_q, sad_valid_d;
+    logic valid_q[3], valid_d[3];
     logic stall_q[2], stall_d[2];
 
     // Instantiate 4 4x4_SAD PE arrays arranged as a full 8x8 block
@@ -73,7 +65,7 @@ module fs_computer (
         .sad(sad_4x4_d[1])
     );
 
-    // Instantiate RAMs to hold the SAD values from the upper two rows.
+    // Instantiate RAMs to hold the SAD values from the upper rows.
     sram_if #(.ADDR_W(SW_IDX_W), .DATA_W(WINDOW_SIZE * SAD_4X4_W)) ram_a_if ();
     sram_if #(.ADDR_W(SW_IDX_W), .DATA_W(WINDOW_SIZE * SAD_4X4_W)) ram_b_if ();
 
@@ -108,7 +100,7 @@ module fs_computer (
         ram_b_if.rd_addr = 'x;
 
         // Stage 1: Save to RAM when PE output (sad_4x4_d) is valid for the upper half
-        if (!stall_q[1] && upper_half_q[1] && stage1_valid_q) begin
+        if (!stall_q[1] && upper_half_q[1] && valid_q[1]) begin
             ram_a_if.wr_en   = 1'b1;
             ram_a_if.wr_addr = sad_sw_idx_q[1];
             for (int col = 0; col < WINDOW_SIZE; col++) begin
@@ -124,7 +116,7 @@ module fs_computer (
 
         // Stage 0: Retrieve from RAM one cycle before sad_4x4_d is valid
         // so rd_data arrives in Stage 1 alongside sad_4x4_d
-        if (!stall_q[0] && !upper_half_q[0] && stage0_valid_q) begin
+        if (!stall_q[0] && !upper_half_q[0] && valid_q[0]) begin
             ram_a_if.rd_en   = 1'b1;
             ram_a_if.rd_addr = sad_sw_idx_q[0];
 
@@ -139,17 +131,17 @@ module fs_computer (
 
         // Stage 0 inputs (aligned with rb_q)
         rb_d            = rb;
-        stage0_valid_d  = (rb_row_idx >= 3);
+        valid_d[0]      = (rb_row_idx >= 3);
         upper_half_d[0] = upper_half;
-        sad_sw_idx_d[0] = SW_IDX_W'(rb_row_idx - 3'd3);
+        sad_sw_idx_d[0] = (rb_row_idx >= 3) ? SW_IDX_W'(rb_row_idx - 3'd3) : '0;
 
         // Stage 1 inputs (aligned with PE acc_q / sad_4x4_d)
-        stage1_valid_d  = stage0_valid_q;
+        valid_d[1]      = valid_q[0];
         upper_half_d[1] = upper_half_q[0];
         sad_sw_idx_d[1] = sad_sw_idx_q[0];
 
         // Stage 2 inputs (aligned with buffered outputs sad_4x4_q..sad_8x8_q)
-        sad_valid_d     = stage1_valid_q;
+        valid_d[2]      = valid_q[1];
         upper_half_d[2] = upper_half_q[1];
         sad_sw_idx_d[2] = sad_sw_idx_q[1];
 
@@ -169,38 +161,47 @@ module fs_computer (
 
     // Buffer the output of the 4x4 PE arrays
     always_ff @(posedge clk) begin
-        stall_q <= stall_d;
+        if (clear) begin
+            for (int i = 0; i < 2; i++) stall_q[i] <= '0;
+            for (int i = 0; i < 3; i++) begin
+                valid_q[i]      <= '0;
+                upper_half_q[i] <= '0;
+                sad_sw_idx_q[i] <= '0;
+            end
+        end else begin
+            stall_q <= stall_d;
 
-        // Stage 0 registers (buffered input level)
-        if (!stall) begin
-            rb_q            <= rb_d;
-            stage0_valid_q  <= stage0_valid_d;
-            upper_half_q[0] <= upper_half_d[0];
-            sad_sw_idx_q[0] <= sad_sw_idx_d[0];
-        end
+            // Stage 0 registers (buffered input level)
+            if (!stall) begin
+                rb_q            <= rb_d;
+                valid_q[0]      <= valid_d[0];
+                upper_half_q[0] <= upper_half_d[0];
+                sad_sw_idx_q[0] <= sad_sw_idx_d[0];
+            end
 
-        // Stage 1 control registers (aligned with fs_pe acc_q which stalls on stall_q)
-        if (!stall_q[0]) begin
-            stage1_valid_q  <= stage1_valid_d;
-            upper_half_q[1] <= upper_half_d[1];
-            sad_sw_idx_q[1] <= sad_sw_idx_d[1];
-        end
+            // Stage 1 control registers (aligned with fs_pe acc_q which stalls on stall_q)
+            if (!stall_q[0]) begin
+                valid_q[1]      <= valid_d[1];
+                upper_half_q[1] <= upper_half_d[1];
+                sad_sw_idx_q[1] <= sad_sw_idx_d[1];
+            end
 
-        // Stage 2 output registers
-        if (!stall_q[1]) begin
-            sad_4x4_q       <= sad_4x4_d;
-            sad_4x8_q       <= sad_4x8_d;
-            sad_8x4_q       <= sad_8x4_d;
-            sad_8x8_q       <= sad_8x8_d;
-            sad_valid_q     <= sad_valid_d;
-            upper_half_q[2] <= upper_half_d[2];
-            sad_sw_idx_q[2] <= sad_sw_idx_d[2];
+            // Stage 2 output registers
+            if (!stall_q[1]) begin
+                sad_4x4_q       <= sad_4x4_d;
+                sad_4x8_q       <= sad_4x8_d;
+                sad_8x4_q       <= sad_8x4_d;
+                sad_8x8_q       <= sad_8x8_d;
+                valid_q[2]      <= valid_d[2];
+                upper_half_q[2] <= upper_half_d[2];
+                sad_sw_idx_q[2] <= sad_sw_idx_d[2];
+            end
         end
     end
 
     // Assign the 8x4 and 8x8 output
     always_comb begin
-        sad_4x_valid = sad_valid_q && !stall_q[1];
+        sad_4x_valid = valid_q[2] && !stall_q[1];
         sad_4x4      = sad_4x4_q;
         sad_4x8      = sad_4x8_q;
         sad_8x_valid = sad_4x_valid && !upper_half_q[2];

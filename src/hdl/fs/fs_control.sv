@@ -43,8 +43,9 @@ module fs_control (
     // Current row and current subblock trackers
     logic upper_half_q, upper_half_d;
     logic [RB_ROW_IDX_W-1:0] rb_row_idx_q, rb_row_idx_d;
-    logic [1:0] sb_idx_8x8_q[3], sb_idx_8x8_d[3];
+    logic [1:0] sb_idx_8x8_q[4], sb_idx_8x8_d[4];
     logic [1:0] sb_idx_16x16;
+    logic stall_q[2], stall_d[2];
 
     // Valid output of the different SAD engines
     logic sad_4x_valid;
@@ -76,6 +77,7 @@ module fs_control (
     // Computer - Computes fisrt level SAD results from the RB stream
     fs_computer computer (
         .clk(clk),
+        .clear(clear),
         .stall(stall),
 
         .upper_half(upper_half_q),
@@ -100,7 +102,7 @@ module fs_control (
 
         .sad_8x8_valid(sad_8x_valid),
         .sad_8x8_last(sw_idx_8x8 == 31),
-        .sb_idx_8x8(sb_idx_8x8_q[2]),
+        .sb_idx_8x8(sb_idx_8x8_q[3]),
         .sw_idx_8x8(sw_idx_8x8),
         .sad_8x8(sad_8x8),
 
@@ -219,6 +221,8 @@ module fs_control (
 
     always_comb begin
         clear_d = clear;
+        stall_d[0] = stall;
+        stall_d[1] = stall_q[0];
 
         upper_half_d = upper_half;
         rb_row_idx_d = rb_row_idx_q == 34 ? 0 : rb_row_idx_q + 1;
@@ -227,17 +231,32 @@ module fs_control (
         if (rb_row_idx_d == 0 && !upper_half_q) sb_idx_8x8_d[0] = sb_idx_8x8_q[0] + 1;
         sb_idx_8x8_d[1] = sb_idx_8x8_q[0];
         sb_idx_8x8_d[2] = sb_idx_8x8_q[1];
+        sb_idx_8x8_d[3] = sb_idx_8x8_q[2];
     end
 
     always_ff @(posedge clk) begin
         if (clear) begin
             upper_half_q <= '0;
             rb_row_idx_q <= '0;
-            for (int i = 0; i < 3; i++) sb_idx_8x8_q[i] <= '0;
-        end else if (!stall) begin
-            upper_half_q <= upper_half_d;
-            rb_row_idx_q <= rb_row_idx_d;
-            sb_idx_8x8_q <= sb_idx_8x8_d;
+            for (int i = 0; i < 2; i++) stall_q[i] <= '0;
+            for (int i = 0; i < 4; i++) sb_idx_8x8_q[i] <= '0;
+        end else begin
+            stall_q <= stall_d;
+
+            if (!stall) begin
+                upper_half_q    <= upper_half_d;
+                rb_row_idx_q    <= rb_row_idx_d;
+                sb_idx_8x8_q[0] <= sb_idx_8x8_d[0];
+                sb_idx_8x8_q[1] <= sb_idx_8x8_d[1];
+            end
+
+            if (!stall_q[0]) begin
+                sb_idx_8x8_q[2] <= sb_idx_8x8_d[2];
+            end
+
+            if (!stall_q[1]) begin
+                sb_idx_8x8_q[3] <= sb_idx_8x8_d[3];
+            end
         end
 
         clear_q <= clear_d;

@@ -94,18 +94,20 @@ module fs_control_unit_test;
                     pass     = (cnt_4x4[q] % 2);      // 0 = upper pass, 1 = lower pass
                     quad_idx = q + (pass * 2);        // Pass 0: q=0->UL(0), q=1->UR(1). Pass 1: q=0->DL(2), q=1->DR(3).
 
-                    if (result_min_4x4[q] !== exp_mb_q[b_idx].min_4x4[sb_idx][quad_idx] ||
-                        result_mv_4x4[q]  !== exp_mb_q[b_idx].mv_4x4[sb_idx][quad_idx]) begin
-                        $display("[DEBUG FAIL @ %0t] 4x4 Mismatch [q=0x%0h, pass=0x%0h]: b_idx=0x%0h, sb_idx=0x%0h, quad=0x%0h | Act Min=0x%0h, Exp Min=0x%0h | Act MV=(0x%0h,0x%0h), Exp MV=(0x%0h,0x%0h)",
-                            $time, q, pass, b_idx, sb_idx, quad_idx,
-                            result_min_4x4[q], exp_mb_q[b_idx].min_4x4[sb_idx][quad_idx],
-                            result_mv_4x4[q].row, result_mv_4x4[q].col,
-                            exp_mb_q[b_idx].mv_4x4[sb_idx][quad_idx].row, exp_mb_q[b_idx].mv_4x4[sb_idx][quad_idx].col);
-                    end
+                    if (exp_mb_q.exists(b_idx)) begin
+                        if (result_min_4x4[q] !== exp_mb_q[b_idx].min_4x4[sb_idx][quad_idx] ||
+                            result_mv_4x4[q]  !== exp_mb_q[b_idx].mv_4x4[sb_idx][quad_idx]) begin
+                            $display("[DEBUG FAIL @ %0t] 4x4 Mismatch [q=0x%0h, pass=0x%0h]: b_idx=0x%0h, sb_idx=0x%0h, quad=0x%0h | Act Min=0x%0h, Exp Min=0x%0h | Act MV=(0x%0h,0x%0h), Exp MV=(0x%0h,0x%0h)",
+                                $time, q, pass, b_idx, sb_idx, quad_idx,
+                                result_min_4x4[q], exp_mb_q[b_idx].min_4x4[sb_idx][quad_idx],
+                                result_mv_4x4[q].row, result_mv_4x4[q].col,
+                                exp_mb_q[b_idx].mv_4x4[sb_idx][quad_idx].row, exp_mb_q[b_idx].mv_4x4[sb_idx][quad_idx].col);
+                        end
 
-                    `FAIL_UNLESS_EQUAL(result_min_4x4[q], exp_mb_q[b_idx].min_4x4[sb_idx][quad_idx])
-                    `FAIL_UNLESS_EQUAL(result_mv_4x4[q],  exp_mb_q[b_idx].mv_4x4[sb_idx][quad_idx])
-                    cnt_4x4[q] <= cnt_4x4[q] + 1;
+                        `FAIL_UNLESS_EQUAL(result_min_4x4[q], exp_mb_q[b_idx].min_4x4[sb_idx][quad_idx])
+                        `FAIL_UNLESS_EQUAL(result_mv_4x4[q],  exp_mb_q[b_idx].mv_4x4[sb_idx][quad_idx])
+                        cnt_4x4[q] <= cnt_4x4[q] + 1;
+                    end
                 end
             end
 
@@ -116,18 +118,20 @@ module fs_control_unit_test;
                 sb_idx = (cnt_4x8 / 2) % 4;
                 pass   = cnt_4x8 % 2; // 0 = upper pass, 1 = lower pass
 
-                if (result_min_4x8 !== exp_mb_q[b_idx].min_4x8[sb_idx][pass] ||
-                    result_mv_4x8  !== exp_mb_q[b_idx].mv_4x8[sb_idx][pass]) begin
-                    $display("[DEBUG FAIL @ %0t] 4x8 Mismatch: b_idx=0x%0h, sb_idx=0x%0h, pass=0x%0h | Act Min=0x%0h, Exp Min=0x%0h | Act MV=(0x%0h,0x%0h), Exp MV=(0x%0h,0x%0h)",
-                        $time, b_idx, sb_idx, pass,
-                        result_min_4x8, exp_mb_q[b_idx].min_4x8[sb_idx][pass],
-                        result_mv_4x8.row, result_mv_4x8.col,
-                        exp_mb_q[b_idx].mv_4x8[sb_idx][pass].row, exp_mb_q[b_idx].mv_4x8[sb_idx][pass].col);
-                end
+                if (exp_mb_q.exists(b_idx)) begin
+                    if (result_min_4x8 !== exp_mb_q[b_idx].min_4x8[sb_idx][pass] ||
+                        result_mv_4x8  !== exp_mb_q[b_idx].mv_4x8[sb_idx][pass]) begin
+                        $display("[DEBUG FAIL @ %0t] 4x8 Mismatch: b_idx=0x%0h, sb_idx=0x%0h, pass=0x%0h | Act Min=0x%0h, Exp Min=0x%0h | Act MV=(0x%0h,0x%0h), Exp MV=(0x%0h,0x%0h)",
+                            $time, b_idx, sb_idx, pass,
+                            result_min_4x8, exp_mb_q[b_idx].min_4x8[sb_idx][pass],
+                            result_mv_4x8.row, result_mv_4x8.col,
+                            exp_mb_q[b_idx].mv_4x8[sb_idx][pass].row, exp_mb_q[b_idx].mv_4x8[sb_idx][pass].col);
+                    end
 
-                `FAIL_UNLESS_EQUAL(result_min_4x8, exp_mb_q[b_idx].min_4x8[sb_idx][pass])
-                `FAIL_UNLESS_EQUAL(result_mv_4x8,  exp_mb_q[b_idx].mv_4x8[sb_idx][pass])
-                cnt_4x8 <= cnt_4x8 + 1;
+                    `FAIL_UNLESS_EQUAL(result_min_4x8, exp_mb_q[b_idx].min_4x8[sb_idx][pass])
+                    `FAIL_UNLESS_EQUAL(result_mv_4x8,  exp_mb_q[b_idx].mv_4x8[sb_idx][pass])
+                    cnt_4x8 <= cnt_4x8 + 1;
+                end
             end
 
             // 8x4 Streams [0..1]
@@ -136,9 +140,11 @@ module fs_control_unit_test;
                     b_idx  = cnt_8x4[h] / 4;
                     sb_idx = cnt_8x4[h] % 4;
 
-                    `FAIL_UNLESS_EQUAL(result_min_8x4[h], exp_mb_q[b_idx].min_8x4[sb_idx][h])
-                    `FAIL_UNLESS_EQUAL(result_mv_8x4[h],  exp_mb_q[b_idx].mv_8x4[sb_idx][h])
-                    cnt_8x4[h] <= cnt_8x4[h] + 1;
+                    if (exp_mb_q.exists(b_idx)) begin
+                        `FAIL_UNLESS_EQUAL(result_min_8x4[h], exp_mb_q[b_idx].min_8x4[sb_idx][h])
+                        `FAIL_UNLESS_EQUAL(result_mv_8x4[h],  exp_mb_q[b_idx].mv_8x4[sb_idx][h])
+                        cnt_8x4[h] <= cnt_8x4[h] + 1;
+                    end
                 end
             end
 
@@ -147,9 +153,11 @@ module fs_control_unit_test;
                 b_idx  = cnt_8x8 / 4;
                 sb_idx = cnt_8x8 % 4;
 
-                `FAIL_UNLESS_EQUAL(result_min_8x8, exp_mb_q[b_idx].min_8x8[sb_idx])
-                `FAIL_UNLESS_EQUAL(result_mv_8x8,  exp_mb_q[b_idx].mv_8x8[sb_idx])
-                cnt_8x8 <= cnt_8x8 + 1;
+                if (exp_mb_q.exists(b_idx)) begin
+                    `FAIL_UNLESS_EQUAL(result_min_8x8, exp_mb_q[b_idx].min_8x8[sb_idx])
+                    `FAIL_UNLESS_EQUAL(result_mv_8x8,  exp_mb_q[b_idx].mv_8x8[sb_idx])
+                    cnt_8x8 <= cnt_8x8 + 1;
+                end
             end
 
             // 16x8 Stream
@@ -222,6 +230,28 @@ module fs_control_unit_test;
             end else begin
                 drive_cycle(rb_d[i + 4], 'x, max_stall_cycles);
             end
+        end
+    endtask
+
+    // Drains the 3 pipeline stages of fs_computer (while rb_row_idx_q is 0..2,
+    // so no new valid rows enter), then holds stall = 1 while fs_combiner and
+    // the comparators finish draining.
+    // Drives one dummy subblock (sb_idx = 0) so fs_combiner reads RAM_A (sb 2)
+    // and RAM_B (sb 3) of the final macroblock and outputs the 4th 16x8 partition.
+    task automatic flush_pipeline(int max_stall_cycles = 0);
+        rb_row_t dummy_rb[39];
+        cb_row_t dummy_cb[8];
+
+        for (int r = 0; r < 39; r++) dummy_rb[r] = '0;
+        for (int r = 0; r < 8;  r++) dummy_cb[r] = '0;
+
+        drive_subblock(dummy_rb, dummy_cb, max_stall_cycles);
+
+        // Wait for the final 16x8 comparator result to emerge
+        stall = 1'b0;
+        repeat (10) begin
+            @(posedge clk);
+            #0;
         end
     endtask
 
@@ -411,31 +441,19 @@ module fs_control_unit_test;
         if (!std::randomize(cf)) `FAIL_IF(1)
 
         @(posedge clk);
-        clear      <= 1'b1;
-        stall      <= 1'b1;
-        upper_half <= 1'b0;
+        clear      = 1'b1;
+        stall      = 1'b1;
+        upper_half = 1'b0;
         repeat (4) @(posedge clk);
-        clear      <= 1'b0;
-        @(posedge clk);
+        #0;
+        clear      = 1'b0;
 
         for (int b_idx = 0; b_idx < num_blocks_to_test; b_idx++) begin
-            $display("[TEST] Iter %0d: Driving macroblock index %0d", iter_id, b_idx);
+            //$display("[TEST] Iter %0d: Driving macroblock index %0d", iter_id, b_idx);
             drive_block(rf, cf, b_idx, max_stall_cycles);
         end
 
-        stall = 0;
-
-        fork
-            begin
-                wait (cnt_16x16 == num_blocks_to_test);
-                repeat (5) @(posedge clk);
-            end
-            begin
-                repeat (1000) @(posedge clk);
-                $display("[ERROR @ %0t] Iter %0d timed out waiting for cnt_16x16!", $time, iter_id);
-            end
-        join_any
-        disable fork;
+        flush_pipeline();
 
         `FAIL_UNLESS_EQUAL(cnt_4x4[0], num_blocks_to_test * 8)
         `FAIL_UNLESS_EQUAL(cnt_4x4[1], num_blocks_to_test * 8)
@@ -484,17 +502,7 @@ module fs_control_unit_test;
             drive_block(rf, cf, b_idx, 0);
         end
 
-        // Wait for the pipeline to drain and verify all outputs arrived
-        fork
-            begin
-                wait (cnt_16x16 == num_blocks_to_test);
-                repeat (5) @(posedge clk);
-            end
-            begin
-                repeat (500) @(posedge clk);
-            end
-        join_any
-        disable fork;
+        flush_pipeline();
 
         $display("cnt_4x4[0]=%d", cnt_4x4[0]);
         $display("cnt_4x4[1]=%d", cnt_4x4[1]);
@@ -507,7 +515,9 @@ module fs_control_unit_test;
     `SVTEST_END
 
     `SVTEST(typical2)
-        run_random_iteration(1, 4, 0);
+        for (int i = 0; i < 256; i++) begin
+            run_random_iteration(1, 4, 0);
+        end
     `SVTEST_END
 
     `SVUNIT_TESTS_END
