@@ -228,17 +228,13 @@ module fs_control (
 
         rb_d = rb;
         cb_d = cb;
-        rb_row_idx_d = rb_row_idx_q;
-        sb_idx_8x8_d = sb_idx_8x8_q;
         upper_half_d = upper_half;
+        rb_row_idx_d = rb_row_idx_q == 34 ? 0 : rb_row_idx_q + 1;
 
-        // Update indicies when not stalled.
-        if (!stall) begin
-            rb_row_idx_d = rb_row_idx_q == 34 ? 0 : rb_row_idx_q + 1;
-            if (rb_row_idx_d == 0 && !upper_half_q) sb_idx_8x8_d[0] = sb_idx_8x8_q[0] + 1;
-            sb_idx_8x8_d[1] = sb_idx_8x8_q[0];
-            sb_idx_8x8_d[2] = sb_idx_8x8_q[1];
-        end
+        sb_idx_8x8_d = sb_idx_8x8_q;
+        if (rb_row_idx_d == 0 && !upper_half_q) sb_idx_8x8_d[0] = sb_idx_8x8_q[0] + 1;
+        sb_idx_8x8_d[1] = sb_idx_8x8_q[0];
+        sb_idx_8x8_d[2] = sb_idx_8x8_q[1];
     end
 
     always_ff @(posedge clk) begin
@@ -248,7 +244,7 @@ module fs_control (
             upper_half_q <= '0;
             rb_row_idx_q <= '0;
             for (int i = 0; i < 3; i++) sb_idx_8x8_q[i] <= '0;
-        end else begin
+        end else if (!stall) begin
             rb_q <= rb_d;
             cb_q <= cb_d;
             upper_half_q <= upper_half_d;

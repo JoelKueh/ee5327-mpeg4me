@@ -55,16 +55,16 @@ module fs_comparator_unit_test;
         input_sads = sads;
 
         #1;
-        $display("last=%d valid=%d valid_q=%d out_valid=%d input_sw_idx=%h input_sw_idx_q=%h",
-            l, input_valid, dut.input_valid_q, dut.result_valid, input_sw_idx, dut.input_sw_idx_q[0]);
-        $display("5 - %p", dut.input_sads);
-        $display("4 - %p", dut.sad_l4);
-        $display("3 - %p", dut.sad_l3);
-        $display("2 - %p", dut.sad_l2_d);
-        $display("2 - %p", dut.sad_l2_q);
-        $display("1 - %p", dut.sad_l1);
-        $display("0 - %h", dut.result_sad);
-        $display("");
+        //$display("last=%d valid=%d valid_q=%d out_valid=%d input_sw_idx=%h input_sw_idx_q=%h",
+        //    l, input_valid, dut.input_valid_q, dut.result_valid, input_sw_idx, dut.input_sw_idx_q[0]);
+        //$display("5 - %p", dut.input_sads);
+        //$display("4 - %p", dut.sad_l4);
+        //$display("3 - %p", dut.sad_l3);
+        //$display("2 - %p", dut.sad_l2_d);
+        //$display("2 - %p", dut.sad_l2_q);
+        //$display("1 - %p", dut.sad_l1);
+        //$display("0 - %h", dut.result_sad);
+        //$display("");
         @(posedge clk);
         #0;
     endtask
@@ -107,7 +107,7 @@ module fs_comparator_unit_test;
 
         std::randomize(sad_buf);
         for (int i = 0; i < 32; i++) begin
-            $display(i);
+            //$display(i);
             drive_cycle(0, 1, i==31, i, sad_buf[i], 0);
         end
 

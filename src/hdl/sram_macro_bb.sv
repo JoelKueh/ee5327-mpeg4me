@@ -23,7 +23,7 @@ module sram_macro_bb #(
         if (REN) rdata_q <= mem[RADDR];
     end
 
-    assign RDATA = DFT_BYPASS ? WDATA : rdata_q;
+    assign RDATA = rdata_q;
     // synopsys translate_on
 `endif
 endmodule

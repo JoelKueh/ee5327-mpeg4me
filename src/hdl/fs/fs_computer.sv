@@ -79,24 +79,6 @@ module fs_computer (
     );
 
     always_comb begin
-
-        stage0_valid_d = !stall && (rb_row_idx >= 3);
-        if (!stall) begin
-            upper_half_d[0] = upper_half;
-            sad_sw_idx_d[0] = SW_IDX_W'(rb_row_idx - 3'd3);
-        end
-        
-        sad_valid_d = stage0_valid_q;
-        if (stage0_valid_q) begin
-            upper_half_d[1] = upper_half_q[0];
-            sad_sw_idx_d[1] = sad_sw_idx_q[0];
-        end
-
-        // Compute the 4x8, 8x4 and 8x8 results in one cycle
-        for (int col = 0; col < WINDOW_SIZE; col++) begin
-            sad_4x8_d[col] = sad_4x4_d[0][col] + sad_4x4_d[1][col];
-        end
-
         // Prevent latches on rams
         ram_a_if.wr_en = '0;
         ram_a_if.wr_addr = 'x;
@@ -111,7 +93,7 @@ module fs_computer (
         ram_b_if.rd_addr = 'x;
 
         // Save to RAM when computing the upper half
-        if (upper_half_q[0] && sad_valid_d) begin
+        if (!stall && upper_half_q[0] && sad_valid_d) begin
             ram_a_if.wr_en = 1;
             ram_a_if.wr_addr = sad_sw_idx_q[0];
             for (int col = 0; col < WINDOW_SIZE; col++) begin
@@ -127,12 +109,29 @@ module fs_computer (
 
         // Retrieve from RAM when computing the lower half
         // Send read one cycle early so data arrives simultaneously
-        if (!upper_half && !stall && (rb_row_idx >= 3)) begin
+        if (!stall && !upper_half && (rb_row_idx >= 3)) begin
             ram_a_if.rd_en = 1;
             ram_a_if.rd_addr = SW_IDX_W'(rb_row_idx - 3'd3);
 
             ram_b_if.rd_en = 1;
             ram_b_if.rd_addr = SW_IDX_W'(rb_row_idx - 3'd3);
+        end
+    end
+
+    always_comb begin
+        // PE Array has valid output after 4th row (sad_4x4_d has valid data)
+        stage0_valid_d  = (rb_row_idx >= 3);
+        upper_half_d[0] = upper_half;
+        sad_sw_idx_d[0] = SW_IDX_W'(rb_row_idx - 3'd3);
+
+        // Buffered 4x4, 4x8, 8x4, and 8x8 SAD is valid one cycle later.
+        sad_valid_d     = stage0_valid_q;
+        upper_half_d[1] = upper_half_q[0];
+        sad_sw_idx_d[1] = sad_sw_idx_q[0];
+
+        // Compute the 4x8, 8x4 and 8x8 results in one cycle
+        for (int col = 0; col < WINDOW_SIZE; col++) begin
+            sad_4x8_d[col] = sad_4x4_d[0][col] + sad_4x4_d[1][col];
         end
 
         // Compute the 8x4 and 8x8 SADs from the inputs and RAM
@@ -146,25 +145,27 @@ module fs_computer (
 
     // Buffer the output of the 4x4 PE arrays
     always_ff @(posedge clk) begin
-        sad_4x4_q <= sad_4x4_d;
-        sad_4x8_q <= sad_4x8_d;
-        sad_8x4_q <= sad_8x4_d;
-        sad_8x8_q <= sad_8x8_d;
-        upper_half_q <= upper_half_d;
-        sad_sw_idx_q <= sad_sw_idx_d;
-        sad_valid_q <= sad_valid_d;
-        stage0_valid_q <= stage0_valid_d;
+        if (!stall) begin
+            sad_4x4_q      <= sad_4x4_d;
+            sad_4x8_q      <= sad_4x8_d;
+            sad_8x4_q      <= sad_8x4_d;
+            sad_8x8_q      <= sad_8x8_d;
+            upper_half_q   <= upper_half_d;
+            sad_sw_idx_q   <= sad_sw_idx_d;
+            sad_valid_q    <= sad_valid_d;
+            stage0_valid_q <= stage0_valid_d;
+        end
     end
 
     // Assign the 8x4 and 8x8 output
     always_comb begin
-        sad_4x_valid = sad_valid_q;
-        sad_4x4 = sad_4x4_q;
-        sad_4x8 = sad_4x8_q;
+        sad_4x_valid = sad_valid_q && !stall;
+        sad_4x4      = sad_4x4_q;
+        sad_4x8      = sad_4x8_q;
         sad_8x_valid = sad_4x_valid && !upper_half_q[1];
-        sad_8x4 = sad_8x4_q;
-        sad_8x8 = sad_8x8_q;
-        sad_sw_idx = sad_sw_idx_q[1];
+        sad_8x4      = sad_8x4_q;
+        sad_8x8      = sad_8x8_q;
+        sad_sw_idx   = sad_sw_idx_q[1];
     end
 
 endmodule

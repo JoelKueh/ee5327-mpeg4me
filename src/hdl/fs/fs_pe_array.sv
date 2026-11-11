@@ -34,7 +34,7 @@ module fs_pe_array (
                     .stall(stall),
                     .clear(clear_row[row]),
                     .rb(rb[col+3:col]),
-                    .cb(cb_d[row]),  // TODO: Potentially fix timing path by buffering rb.
+                    .cb(cb_d[row]),
                     .sad(pe_sad[row][col])
                 );
             end
