@@ -22,8 +22,9 @@ module fs_pe_array (
     logic clear_q[4], clear_d[4];                  // Pipelined row clear signal
     logic stall_q[4], stall_d[4];                  // Pipelined row stall signal
 
-    logic [3:0][PEL_W-1:0] cb_q[4], cb_d[4];  // Ring of candidate frame 
-    logic [1:0] row_select_q, row_select_d;   // Row select mux signal
+    logic [3:0][PEL_W-1:0] cb_q[4], cb_d[4];       // Ring of candidate frame 
+    logic [1:0] row_select_s0_q, row_select_s0_d;  // Stage 0 row select
+    logic [1:0] row_select_q, row_select_d;        // Row select mux signal (PE aligned)
 
     // Instantiate the rows of engines
     genvar row, col;
@@ -46,7 +47,10 @@ module fs_pe_array (
         // Clear rows when a row is receiving data for a new SAD
         for (int i = 0; i < 4; i++) clear_d[i] = '0;
         clear_d[row_idx_mod_next] = '1;
-        row_select_d = row_idx_mod_next;
+
+        // The row finishing its 4th accumulation is the row that started three cycles ago.
+        row_select_s0_d = row_idx_mod_next + 2'd1;
+        row_select_d = row_select_s0_q;
 
         // Stall one cycle after receiving stall_next 
         for (int i = 0; i < 4; i++) stall_d[i] = stall_next;
@@ -61,10 +65,16 @@ module fs_pe_array (
 
     // Buffer the result output.
     always_ff @(posedge clk) begin
+        // Stage 0 registers stall with the computer
         if (!stall_next) begin
             cb_q <= cb_d;
-            row_select_q <= row_select_d;
+            row_select_s0_q <= row_select_s0_d;
             clear_q <= clear_d;
+        end
+
+        // Stage 1 mux select stalls along with the PEs on stall_q
+        if (!stall_q[0]) begin
+            row_select_q <= row_select_d;
         end
 
         stall_q <= stall_d;

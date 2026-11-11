@@ -40,11 +40,6 @@ module fs_control (
 
     import me_pkg::*;
 
-    // Input data buffers
-    logic stall_q, stall_d;
-    logic [WINDOW_SIZE+6:0][PEL_W-1:0] rb_q, rb_d;
-    logic [7:0][PEL_W-1:0] cb_q, cb_d;
-
     // Current row and current subblock trackers
     logic upper_half_q, upper_half_d;
     logic [RB_ROW_IDX_W-1:0] rb_row_idx_q, rb_row_idx_d;
@@ -81,11 +76,11 @@ module fs_control (
     // Computer - Computes fisrt level SAD results from the RB stream
     fs_computer computer (
         .clk(clk),
-        .stall(stall_q),
+        .stall(stall),
 
         .upper_half(upper_half_q),
-        .cb(cb_q),
-        .rb(rb_q),
+        .cb(cb),
+        .rb(rb),
         .rb_row_idx(rb_row_idx_q),
 
         .sad_4x_valid(sad_4x_valid),
@@ -224,10 +219,7 @@ module fs_control (
 
     always_comb begin
         clear_d = clear;
-        stall_d = stall;
 
-        rb_d = rb;
-        cb_d = cb;
         upper_half_d = upper_half;
         rb_row_idx_d = rb_row_idx_q == 34 ? 0 : rb_row_idx_q + 1;
 
@@ -239,21 +231,16 @@ module fs_control (
 
     always_ff @(posedge clk) begin
         if (clear) begin
-            rb_q <= '0;
-            cb_q <= '0;
             upper_half_q <= '0;
             rb_row_idx_q <= '0;
             for (int i = 0; i < 3; i++) sb_idx_8x8_q[i] <= '0;
         end else if (!stall) begin
-            rb_q <= rb_d;
-            cb_q <= cb_d;
             upper_half_q <= upper_half_d;
             rb_row_idx_q <= rb_row_idx_d;
             sb_idx_8x8_q <= sb_idx_8x8_d;
         end
 
         clear_q <= clear_d;
-        stall_q <= stall_d;
     end
 
 endmodule
