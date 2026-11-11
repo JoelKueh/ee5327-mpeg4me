@@ -17,21 +17,21 @@ module fs_computer_unit_test;
     typedef logic [WINDOW_SIZE+6:0][PEL_W-1:0] rb_row_t;
     typedef logic [7:0][PEL_W-1:0] cb_row_t;
 
-    logic                               clk;
-    logic                               bd_valid;
-    logic                               upper_half;
-    logic [7:0][PEL_W-1:0]              cb;
+    logic                              clk;
+    logic                              stall;
+    logic                              upper_half;
+    logic [7:0][PEL_W-1:0]             cb;
     logic [WINDOW_SIZE+6:0][PEL_W-1:0] rb;
     logic [RB_ROW_IDX_W-1:0]           rb_row_idx;
 
-    logic                               sad_4x_valid;
-    logic [SAD_4X4_W-1:0]               sad_4x4[2][WINDOW_SIZE];
-    logic [SAD_8X4_W-1:0]               sad_4x8[WINDOW_SIZE];
+    logic                              sad_4x_valid;
+    logic [SAD_4X4_W-1:0]              sad_4x4[2][WINDOW_SIZE];
+    logic [SAD_8X4_W-1:0]              sad_4x8[WINDOW_SIZE];
 
-    logic                               sad_8x_valid;
-    logic [SAD_8X4_W-1:0]               sad_8x4[2][WINDOW_SIZE];
-    logic [SAD_8X8_W-1:0]               sad_8x8[WINDOW_SIZE];
-    logic [SW_IDX_W-1:0]                sad_sw_idx;
+    logic                              sad_8x_valid;
+    logic [SAD_8X4_W-1:0]              sad_8x4[2][WINDOW_SIZE];
+    logic [SAD_8X8_W-1:0]              sad_8x8[WINDOW_SIZE];
+    logic [SW_IDX_W-1:0]               sad_sw_idx;
 
     fs_computer dut (.*);
 
@@ -79,7 +79,7 @@ module fs_computer_unit_test;
         input cb_row_t b,
         input bit record
     );
-        bd_valid   = !s;
+        stall      = s;
         upper_half = up_half;
         rb         = r;
         cb         = b;
@@ -303,7 +303,7 @@ module fs_computer_unit_test;
 
     task setup();
         svunit_ut.setup();
-        bd_valid   = '0;
+        stall      = '1;
         upper_half = '0;
         rb         = '0;
         rb_row_idx = '0;

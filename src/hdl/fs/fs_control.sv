@@ -6,17 +6,12 @@
 module fs_control (
     input logic clk,
     input logic clear,
+    input logic stall,
 
-    // Reference block is streamed into the control model in Morton order.
-    output logic rb_ready,
-    input logic rb_valid,
+    // Data is streamed into the block in morton order.
     input logic [me_pkg::WINDOW_SIZE+6:0][me_pkg::PEL_W-1:0] rb,
-
-    // Current block is also streamed in Morton order.
-    output logic                          cb_ready,
-    input  logic                          cb_valid,
-    input  logic [7:0][me_pkg::PEL_W-1:0] cb,
-    input  logic                          upper_half,
+    input logic [7:0][me_pkg::PEL_W-1:0] cb,
+    input logic                          upper_half,
 
     // Valid output of the different comparators
     output logic result_4x4_valid[2],
@@ -46,10 +41,9 @@ module fs_control (
     import me_pkg::*;
 
     // Input data buffers
+    logic stall_q, stall_d;
     logic [WINDOW_SIZE+6:0][PEL_W-1:0] rb_q, rb_d;
-    logic rb_has_data_q, rb_has_data_d;
     logic [7:0][PEL_W-1:0] cb_q, cb_d;
-    logic cb_has_data_q, cb_has_data_d;
 
     // Current row and current subblock trackers
     logic upper_half_q, upper_half_d;
@@ -58,7 +52,6 @@ module fs_control (
     logic [1:0] sb_idx_16x16;
 
     // Valid output of the different SAD engines
-    logic bd_valid;
     logic sad_4x_valid;
     logic sad_8x_valid;
     logic sad_16x8_valid;
@@ -88,8 +81,8 @@ module fs_control (
     // Computer - Computes fisrt level SAD results from the RB stream
     fs_computer computer (
         .clk(clk),
+        .stall(stall_q),
 
-        .bd_valid(bd_valid),
         .upper_half(upper_half_q),
         .cb(cb_q),
         .rb(rb_q),
@@ -231,72 +224,40 @@ module fs_control (
 
     always_comb begin
         clear_d = clear;
+        stall_d = stall;
 
-        rb_d = rb_q;
-        rb_has_data_d = rb_has_data_q;
-        cb_d = cb_q;
-        cb_has_data_d = cb_has_data_q;
+        rb_d = rb;
+        cb_d = cb;
         rb_row_idx_d = rb_row_idx_q;
         sb_idx_8x8_d = sb_idx_8x8_q;
         upper_half_d = upper_half;
 
-        // For the first four rows, stream CB and RB simultaneously.
-        if (rb_row_idx_q < 4) begin
-            bd_valid = cb_has_data_q && rb_has_data_q;
-        end else begin
-            bd_valid = rb_has_data_q;
-        end
-
-        // We need data when we are not stalled and when we don't have data
-        rb_ready = bd_valid || !rb_has_data_q;
-        cb_ready = bd_valid || !cb_has_data_q;
-
-        // Drive data if we are not stalled.
-        if (bd_valid) begin
-            cb_has_data_d = 0;
-            rb_has_data_d = 0;
-
-            // Update the row index, then the subblock index if necessary.
+        // Update indicies when not stalled.
+        if (!stall) begin
             rb_row_idx_d = rb_row_idx_q == 34 ? 0 : rb_row_idx_q + 1;
             if (rb_row_idx_d == 0 && !upper_half_q) sb_idx_8x8_d[0] = sb_idx_8x8_q[0] + 1;
             sb_idx_8x8_d[1] = sb_idx_8x8_q[0];
             sb_idx_8x8_d[2] = sb_idx_8x8_q[1];
-        end
-
-        // Handshake and buffer data from the stream.
-        if (rb_ready && rb_valid) begin
-            rb_d = rb;
-            rb_has_data_d = 1;
-        end
-
-        if (cb_ready && cb_valid) begin
-            cb_d = cb;
-            cb_has_data_d = 1;
         end
     end
 
     always_ff @(posedge clk) begin
         if (clear) begin
             rb_q <= '0;
-            rb_has_data_q <= '0;
             cb_q <= '0;
-            cb_has_data_q <= '0;
-
             upper_half_q <= '0;
             rb_row_idx_q <= '0;
             for (int i = 0; i < 3; i++) sb_idx_8x8_q[i] <= '0;
         end else begin
             rb_q <= rb_d;
-            rb_has_data_q <= rb_has_data_d;
             cb_q <= cb_d;
-            cb_has_data_q <= cb_has_data_d;
-
             upper_half_q <= upper_half_d;
             rb_row_idx_q <= rb_row_idx_d;
             sb_idx_8x8_q <= sb_idx_8x8_d;
         end
 
         clear_q <= clear_d;
+        stall_q <= stall_d;
     end
 
 endmodule

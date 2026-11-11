@@ -7,9 +7,9 @@
 //
 
 module fs_computer (
-    input logic clk,    // The primary clock
+    input logic clk,   // The primary clock
+    input logic stall, // Pipelined stall signal
 
-    input logic bd_valid, // Block data valid signal
     input logic upper_half,  // Computing the upper half of a subblock or lower?
     input logic [7:0][me_pkg::PEL_W-1:0] cb,  // Current block input
     input logic [me_pkg::WINDOW_SIZE+6:0][me_pkg::PEL_W-1:0] rb,  // Reference block input stream
@@ -40,7 +40,7 @@ module fs_computer (
     // Instantiate 4 4x4_SAD PE arrays arranged as a full 8x8 block
     fs_pe_array pe_array_l (
         .clk(clk),
-        .stall(!bd_valid),
+        .stall(stall),
         .load(rb_row_idx < 4),
         .row_idx_mod(rb_row_idx[1:0]),
         .rb(rb[WINDOW_SIZE+2:0]),
@@ -50,7 +50,7 @@ module fs_computer (
 
     fs_pe_array pe_array_r (
         .clk(clk),
-        .stall(!bd_valid),
+        .stall(stall),
         .load(rb_row_idx < 4),
         .row_idx_mod(rb_row_idx[1:0]),
         .rb(rb[WINDOW_SIZE+6:4]),
@@ -80,8 +80,8 @@ module fs_computer (
 
     always_comb begin
 
-        stage0_valid_d = bd_valid && (rb_row_idx >= 3);
-        if (bd_valid) begin
+        stage0_valid_d = !stall && (rb_row_idx >= 3);
+        if (!stall) begin
             upper_half_d[0] = upper_half;
             sad_sw_idx_d[0] = SW_IDX_W'(rb_row_idx - 3'd3);
         end
@@ -127,7 +127,7 @@ module fs_computer (
 
         // Retrieve from RAM when computing the lower half
         // Send read one cycle early so data arrives simultaneously
-        if (!upper_half && bd_valid && (rb_row_idx >= 3)) begin
+        if (!upper_half && !stall && (rb_row_idx >= 3)) begin
             ram_a_if.rd_en = 1;
             ram_a_if.rd_addr = SW_IDX_W'(rb_row_idx - 3'd3);
 

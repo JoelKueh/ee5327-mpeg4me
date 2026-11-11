@@ -16,11 +16,8 @@ module fs_control_unit_test;
 
     logic clk;
     logic clear;
-    logic rb_ready;
-    logic rb_valid;
+    logic stall;
     logic [WINDOW_SIZE+6:0][PEL_W-1:0] rb;
-    logic cb_ready;
-    logic cb_valid;
     logic [7:0][PEL_W-1:0] cb;
     logic upper_half;
 
@@ -73,10 +70,6 @@ module fs_control_unit_test;
     int cnt_8x8;
     int cnt_16x8;
     int cnt_16x16;
-
-    // ------------------------------------------------------------------
-    // Corrected On-the-Fly Multi-Stream Checker
-    // ------------------------------------------------------------------
 
     always @(posedge clk) begin
         int b_idx;
@@ -187,28 +180,36 @@ module fs_control_unit_test;
         forever #5 clk = ~clk;
     end
 
-    // Properly handshakes RB (and CB when has_cb is set)
-    task automatic drive_cycle(rb_row_t rb_d, cb_row_t cb_d, bit has_cb = 1'b1);
-        rb_valid = 1'b1;
-        rb       = rb_d;
-        cb_valid = has_cb;
-        cb       = cb_d;
+    // Drives one valid row (with optional random stall cycles before it)
+    task automatic drive_cycle(rb_row_t rb_d, cb_row_t cb_d, int max_stall_cycles = 0);
+        int num_stalls = (max_stall_cycles > 0) ? $urandom_range(0, max_stall_cycles) : 0;
 
-        do begin
+        // Optional stall cycles: hold stall = 1 and drive X on data to prove DUT ignores it
+        repeat (num_stalls) begin
+            stall = 1'b1;
+            rb    = 'x;
+            cb    = 'x;
             @(posedge clk);
-        end while (!(rb_ready && (!has_cb || cb_ready)));
+            #0;
+        end
+
+        // Active cycle: stall = 0
+        stall = 1'b0;
+        rb    = rb_d;
+        cb    = cb_d;
+        @(posedge clk);
         #0;
     endtask
 
-    task automatic drive_subblock(rb_row_t rb_d[39], cb_row_t cb_d[8]);
+    task automatic drive_subblock(rb_row_t rb_d[39], cb_row_t cb_d[8], int max_stall_cycles);
         // Pass 1: Upper half (upper_half = 1)
         // Streams rb_d[0..34] and cb_d[0..3]
         upper_half = 1'b1;
         for (int i = 0; i < 35; i++) begin
             if (i < 4) begin
-                drive_cycle(rb_d[i], cb_d[i], 1'b1);
+                drive_cycle(rb_d[i], cb_d[i], max_stall_cycles);
             end else begin
-                drive_cycle(rb_d[i], 'x, 1'b0);
+                drive_cycle(rb_d[i], 'x, max_stall_cycles);
             end
         end
 
@@ -217,9 +218,9 @@ module fs_control_unit_test;
         upper_half = 1'b0;
         for (int i = 0; i < 35; i++) begin
             if (i < 4) begin
-                drive_cycle(rb_d[i + 4], cb_d[i + 4], 1'b1);
+                drive_cycle(rb_d[i + 4], cb_d[i + 4], max_stall_cycles);
             end else begin
-                drive_cycle(rb_d[i + 4], 'x, 1'b0);
+                drive_cycle(rb_d[i + 4], 'x, max_stall_cycles);
             end
         end
     endtask
@@ -265,7 +266,8 @@ module fs_control_unit_test;
         end
     endtask
 
-    task automatic drive_block(const ref frame_t rf, const ref frame_t cf, input int b_idx);
+    task automatic drive_block(const ref frame_t rf, const ref frame_t cf, input int b_idx,
+            int max_stall_cycles);
         rb_row_t sb_rb[4][39];
         cb_row_t sb_cb[4][8];
 
@@ -276,7 +278,7 @@ module fs_control_unit_test;
         calc_expected_results(sb_rb, sb_cb, exp_mb_q[b_idx]);
 
         for (int sb_idx = 0; sb_idx < 4; sb_idx++) begin
-            drive_subblock(sb_rb[sb_idx], sb_cb[sb_idx]);
+            drive_subblock(sb_rb[sb_idx], sb_cb[sb_idx], max_stall_cycles);
         end
     endtask
 
@@ -397,6 +399,54 @@ module fs_control_unit_test;
         end
     endfunction
 
+    task automatic run_random_iteration(int iter_id, int num_blocks_to_test = 4, int max_stall_cycles);
+        frame_t rf;
+        frame_t cf;
+
+        $display("[TEST] === Starting Iteration %0d (%0d blocks) ===", iter_id, num_blocks_to_test);
+
+        exp_mb_q.delete();
+
+        if (!std::randomize(rf)) `FAIL_IF(1)
+        if (!std::randomize(cf)) `FAIL_IF(1)
+
+        @(posedge clk);
+        clear      <= 1'b1;
+        stall      <= 1'b1;
+        upper_half <= 1'b0;
+        repeat (4) @(posedge clk);
+        clear      <= 1'b0;
+        @(posedge clk);
+
+        for (int b_idx = 0; b_idx < num_blocks_to_test; b_idx++) begin
+            $display("[TEST] Iter %0d: Driving macroblock index %0d", iter_id, b_idx);
+            drive_block(rf, cf, b_idx, max_stall_cycles);
+        end
+
+        stall = 0;
+
+        fork
+            begin
+                wait (cnt_16x16 == num_blocks_to_test);
+                repeat (5) @(posedge clk);
+            end
+            begin
+                repeat (1000) @(posedge clk);
+                $display("[ERROR @ %0t] Iter %0d timed out waiting for cnt_16x16!", $time, iter_id);
+            end
+        join_any
+        disable fork;
+
+        `FAIL_UNLESS_EQUAL(cnt_4x4[0], num_blocks_to_test * 8)
+        `FAIL_UNLESS_EQUAL(cnt_4x4[1], num_blocks_to_test * 8)
+        `FAIL_UNLESS_EQUAL(cnt_4x8,    num_blocks_to_test * 8)
+        `FAIL_UNLESS_EQUAL(cnt_8x4[0], num_blocks_to_test * 4)
+        `FAIL_UNLESS_EQUAL(cnt_8x4[1], num_blocks_to_test * 4)
+        `FAIL_UNLESS_EQUAL(cnt_8x8,    num_blocks_to_test * 4)
+        `FAIL_UNLESS_EQUAL(cnt_16x8,   num_blocks_to_test * 4)
+        `FAIL_UNLESS_EQUAL(cnt_16x16,  num_blocks_to_test)
+    endtask
+
     string name = "fs_control_ut";
     svunit_testcase svunit_ut;
 
@@ -406,8 +456,7 @@ module fs_control_unit_test;
 
     task setup();
         svunit_ut.setup();
-        rb_valid   = '0;
-        cb_valid   = '0;
+        stall      = '0;
         rb         = '0;
         cb         = '0;
         upper_half = '0;
@@ -432,12 +481,8 @@ module fs_control_unit_test;
 
         for (int b_idx = 0; b_idx < num_blocks_to_test; b_idx++) begin
             $display("[TEST] Driving macroblock block index: %d", b_idx);
-            drive_block(rf, cf, b_idx);
+            drive_block(rf, cf, b_idx, 0);
         end
-
-        // Deassert stream valids after driving the last macroblock
-        rb_valid = 1'b0;
-        cb_valid = 1'b0;
 
         // Wait for the pipeline to drain and verify all outputs arrived
         fork
@@ -459,6 +504,10 @@ module fs_control_unit_test;
         $display("cnt_8x8   =%d", cnt_8x8);
         $display("cnt_16x8  =%d", cnt_16x8);
         $display("cnt_16x16 =%d", cnt_16x16);
+    `SVTEST_END
+
+    `SVTEST(typical2)
+        run_random_iteration(1, 4, 0);
     `SVTEST_END
 
     `SVUNIT_TESTS_END
