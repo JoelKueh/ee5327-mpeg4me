@@ -18,9 +18,17 @@ module fs_pe_array (
 
     import me_pkg::*;
 
-    logic [SAD_4X4_W-1:0] pe_sad[4][WINDOW_SIZE];  // Results from each PE row
-    logic clear_q[4], clear_d[4];                  // Pipelined row clear signal
-    logic stall_q[4], stall_d[4];                  // Pipelined row stall signal
+    logic [SAD_4X4_W-1:0] pe_sad[4][WINDOW_SIZE];        // Results from each PE row
+    logic clear_q[4] /* synopsys preserve_sequential */; // Pipelined row clear signal
+    logic clear_d[4];
+    logic stall_q[4] /* synopsys preserve_sequential */; // Pipelined row stall signal
+    logic stall_d[4];
+
+    // Embedded DC Tcl constraint: prevents OPT-1215 merging on stall_q/clear_q
+    // while allowing scan replacement
+    // synopsys dc_tcl_script_begin
+    // set_register_merging [get_cells {stall_q_reg* clear_q_reg*}] false
+    // synopsys dc_tcl_script_end
 
     logic [3:0][PEL_W-1:0] cb_q[4], cb_d[4];       // Ring of candidate frame 
     logic [1:0] row_select_q[2], row_select_d[2];  // Row select signal

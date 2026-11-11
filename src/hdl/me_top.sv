@@ -6,17 +6,12 @@
 module me_top (
     input logic clk,
     input logic clear,
+    input logic stall,
 
-    // Reference block is streamed into the control model in Morton order.
-    output logic rb_ready,
-    input logic rb_valid,
+    // Data is streamed into the block in morton order.
     input logic [me_pkg::WINDOW_SIZE+6:0][me_pkg::PEL_W-1:0] rb,
-
-    // Current block is also streamed in Morton order.
-    output logic                          cb_ready,
-    input  logic                          cb_valid,
-    input  logic [7:0][me_pkg::PEL_W-1:0] cb,
-    input  logic                          upper_half,
+    input logic [7:0][me_pkg::PEL_W-1:0] cb,
+    input logic                          upper_half,
 
     // Valid output of the different comparators
     output logic result_4x4_valid[2],
