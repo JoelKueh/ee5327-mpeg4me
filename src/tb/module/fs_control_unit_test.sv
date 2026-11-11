@@ -376,28 +376,34 @@ module fs_control_unit_test;
                     sum_8x8 = sum_8x4[0] + sum_8x4[1];
                     sad_8x8_grid[sb][dy][dx] = sum_8x8;
 
+                    // Hardware prefers earlier dx within the same dy (<),
+                    // but swaps on equal SAD for a later dy (dy > current mv.row).
                     for (int q = 0; q < 4; q++) begin
-                        if (sad_4x4[q] < exp.min_4x4[sb][q]) begin
+                        if (sad_4x4[q] < exp.min_4x4[sb][q] ||
+                            (sad_4x4[q] == exp.min_4x4[sb][q] && dy > exp.mv_4x4[sb][q].row)) begin
                             exp.min_4x4[sb][q] = sad_4x4[q][SAD_4X4_W-1:0];
                             exp.mv_4x4[sb][q]  = to_mv(dy, dx);
                         end
                     end
 
                     for (int h = 0; h < 2; h++) begin
-                        if (sum_4x8[h] < exp.min_4x8[sb][h]) begin
+                        if (sum_4x8[h] < exp.min_4x8[sb][h] ||
+                            (sum_4x8[h] == exp.min_4x8[sb][h] && dy > exp.mv_4x8[sb][h].row)) begin
                             exp.min_4x8[sb][h] = sum_4x8[h][SAD_8X4_W-1:0];
                             exp.mv_4x8[sb][h]  = to_mv(dy, dx);
                         end
                     end
 
                     for (int h = 0; h < 2; h++) begin
-                        if (sum_8x4[h] < exp.min_8x4[sb][h]) begin
+                        if (sum_8x4[h] < exp.min_8x4[sb][h] ||
+                            (sum_8x4[h] == exp.min_8x4[sb][h] && dy > exp.mv_8x4[sb][h].row)) begin
                             exp.min_8x4[sb][h] = sum_8x4[h][SAD_8X4_W-1:0];
                             exp.mv_8x4[sb][h]  = to_mv(dy, dx);
                         end
                     end
 
-                    if (sum_8x8 < exp.min_8x8[sb]) begin
+                    if (sum_8x8 < exp.min_8x8[sb] ||
+                        (sum_8x8 == exp.min_8x8[sb] && dy > exp.mv_8x8[sb].row)) begin
                         exp.min_8x8[sb] = sum_8x8[SAD_8X8_W-1:0];
                         exp.mv_8x8[sb]  = to_mv(dy, dx);
                     end
@@ -415,13 +421,15 @@ module fs_control_unit_test;
                 sad_16x16_cand   = sad_16x8_cand[0] + sad_16x8_cand[3];
 
                 for (int p = 0; p < 4; p++) begin
-                    if (sad_16x8_cand[p] < exp.min_16x8[p]) begin
+                    if (sad_16x8_cand[p] < exp.min_16x8[p] ||
+                        (sad_16x8_cand[p] == exp.min_16x8[p] && dy > exp.mv_16x8[p].row)) begin
                         exp.min_16x8[p] = sad_16x8_cand[p][SAD_16X8_W-1:0];
                         exp.mv_16x8[p]  = to_mv(dy, dx);
                     end
                 end
 
-                if (sad_16x16_cand < exp.min_16x16) begin
+                if (sad_16x16_cand < exp.min_16x16 ||
+                    (sad_16x16_cand == exp.min_16x16 && dy > exp.mv_16x16.row)) begin
                     exp.min_16x16 = sad_16x16_cand[SAD_16X16_W-1:0];
                     exp.mv_16x16  = to_mv(dy, dx);
                 end
@@ -515,8 +523,14 @@ module fs_control_unit_test;
     `SVTEST_END
 
     `SVTEST(typical2)
-        for (int i = 0; i < 256; i++) begin
-            run_random_iteration(1, 4, 0);
+        for (int i = 0; i < 16; i++) begin
+            run_random_iteration(i, $urandom_range(16, 32), 0);
+        end
+    `SVTEST_END
+
+    `SVTEST(typical_stall)
+        for (int i = 0; i < 2; i++) begin
+            run_random_iteration(i, $urandom_range(16, 32), 10);
         end
     `SVTEST_END
 
