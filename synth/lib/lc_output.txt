@@ -21,10 +21,17 @@
                         https://solvnetplus.synopsys.com)
 
 Initializing...
-Error: The 'sram_macros_lib.lib' library source file is not found. (UIL-4)
-Warning: The 'sram_macros_lib' library has not been read in yet. (UIL-3)
-Maximum memory usage for this session: 98.33 MB
-CPU usage for this session:      1 seconds (  0.00 hours)
-Elapsed time for this session:      5 seconds (  0.00 hours)
+Reading '/home/kuehn348/src/ee5327/ee5327-mpeg4me/synth/lib/sram_macros.lib' ...
+Warning: Line 83, The 'index_1' attribute has size 1, which is not 
+        used for any purpose with its associated variable. (LBDB-275)
+Warning: Line 87, The 'index_1' attribute has size 1, which is not 
+        used for any purpose with its associated variable. (LBDB-275)
+Warning: Line 1, The 'default_cell_leakage_power' attribute is not specified. Using 0.00. (LBDB-172)
+Warning: Line 1, The 'default_leakage_power_density' attribute is not specified. Using 0.00. (LBDB-172)
+Technology library 'sram_macros_lib' read successfully
+Error: Cannot write the library to the '/home/kuehn348/src/ee5327/ee5327-mpeg4me/synth/lib/./lib/sram_macros_lib.db' file. (UIL-7)
+Maximum memory usage for this session: 139.88 MB
+CPU usage for this session:      2 seconds (  0.00 hours)
+Elapsed time for this session:      4 seconds (  0.00 hours)
 Thank you for using Library Compiler.
 

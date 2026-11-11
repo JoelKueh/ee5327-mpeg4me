@@ -23,6 +23,12 @@ foreach dir "outputs reports logs ${OUT_DIR} ${REPORT_DIR} ${LOG_DIR}" {
 redirect -file /dev/null {set start_time [clock seconds]}
 
 ################################
+# suppress noisy log messages
+suppress_message {PWR-806}
+suppress_message {PWR-730}
+suppress_message {OPT-319}
+
+################################
 # setup tool cache so it doesn't clutter up working dir
 if {![file exists ./synopsys_cache]} {file mkdir ./synopsys_cache}
 set_app_var cache_write ./synopsys_cache
@@ -51,6 +57,7 @@ if {[file exists ./filelist.f]} {
   close $fp
 
   puts "==> INFORMATION: Analyzing files from filelist.f"
+  saif_map -start
   analyze -format sverilog $file_list
 } else {
   puts "==>FATAL: filelist.f list could not be found. Exiting..."
@@ -65,6 +72,10 @@ if {!$link_status} {
   puts "==>FATAL: Design Link Failed... Check ${REPORT_DIR}/${TOP_MODULE}.syn.link.rpt. Exiting..."
   exit
 }
+if {[file exists ./me_top_rtl.saif]} {
+  puts "==> INFORMATION: Reading RTL switching activity from ./me_top_rtl.saif"
+  read_saif -auto_map_names -input ./inputs/constraints/me_top_rtl.saif -instance_name me_top_saif_tb/dut -verbose
+}
 
 ###############################
 # prevent assign statements
@@ -78,6 +89,20 @@ set sram_insts [get_cells -hierarchical -filter "ref_name =~ sram_32x*"]
 if {[sizeof_collection $sram_insts] > 0} {
   puts "==> INFORMATION: Setting dont_touch on [sizeof_collection $sram_insts] SRAM macro instances."
   set_dont_touch $sram_insts
+}
+
+###############################
+# Prevent DC from merging replicated row-broadcast pipeline registers (OPT-1215)
+set pe_fanout_regs [get_cells -hierarchical -filter "full_name =~ *stall_q_reg* || full_name =~ *clear_q_reg*"]
+if {[sizeof_collection $pe_fanout_regs] > 0} {
+  puts "==> INFORMATION: Disabling register merging on [sizeof_collection $pe_fanout_regs] PE broadcast registers."
+  set_register_merging $pe_fanout_regs false
+  set_attribute $pe_fanout_regs preserve_sequential true
+}
+
+# Also disable register merging at the fs_pe_array design level so uniquification doesn't reset it
+if {[sizeof_collection [get_designs -quiet fs_pe_array*]] > 0} {
+  set_register_merging [get_designs fs_pe_array*] false
 }
 
 ###############################
@@ -108,6 +133,12 @@ set_max_transition 0.25 [current_design]
 create_port -direction "in"  {test_si test_se test_tm}
 create_port -direction "out" {test_so}
 
+# Temporarily unlock SRAMs so DC allows connect_pin to wire up DFT_BYPASS
+set sram_insts [get_cells -hierarchical -filter "ref_name =~ sram_32x*"]
+if {[sizeof_collection $sram_insts] > 0} {
+  remove_attribute $sram_insts dont_touch
+}
+
 # Automatically punch and connect test_tm to all SRAM DFT_BYPASS pins across hierarchies
 set sram_bypass_pins [get_pins -hierarchical */DFT_BYPASS]
 if {[sizeof_collection $sram_bypass_pins] > 0} {
@@ -120,13 +151,18 @@ if {[sizeof_collection $sram_bypass_pins] > 0} {
   }
 }
 
+# Re-lock SRAMs before insert_dft and incremental compile
+if {[sizeof_collection $sram_insts] > 0} {
+  set_dont_touch $sram_insts
+}
+
 ###############################
-# path group setup (after test ports exist so they are excluded)
+# Pre-compile path group setup (use [all_registers] cells so SEQGEN/enable pins don't go stale)
 set non_clk_inputs [remove_from_collection [all_inputs] [get_ports {clk test_se test_tm}]]
 group_path -name inputs  -from $non_clk_inputs
 group_path -name output  -to [all_outputs]
 group_path -name comb    -from $non_clk_inputs -to [all_outputs]
-group_path -name reg2reg -from [all_registers -clock_pins] -to [all_registers -data_pins]
+group_path -name reg2reg -from [all_registers] -to [all_registers]
 
 ###############################
 # Clock Gating Style (Ensures -gate_clock ICG cells have a TE pin for DFT)
@@ -134,6 +170,8 @@ set_clock_gating_style -sequential_cell latch \
   -positive_edge_logic {integrated} \
   -control_point before \
   -control_signal scan_enable
+set_app_var power_cg_flatten true
+set_app_var power_cg_balance_stages true
 
 ###############################
 # RTL Test DRC (Run BEFORE setting case_analysis 0 on test_se / test_tm)
@@ -156,7 +194,12 @@ set_app_var fsm_auto_inferring true
 set_app_var fsm_enable_state_minimization true
 set_fsm_minimize true
 
+set_clock_gating_style -pos integrated -control_point before
+set_dynamic_optimization true
+set_leakage_optimization true
+
 compile_ultra -gate_clock -scan -no_autoungroup
+split_clock_gates -max_fanout 32
 write_file -format verilog -hierarchy -output ${OUT_DIR}/${DESIGN_NAME}_pre_dft.vg
 
 ##############################
@@ -194,11 +237,15 @@ set_dont_touch_network [get_ports {test_se test_tm}]
 set_ideal_network      [get_ports {test_se test_tm}]
 set_case_analysis 0    [get_ports {test_se test_tm}]
 
+set_app_var high_fanout_net_threshold 1000
+set_cost_priority -delay
+
 ##############################
 # STEP: Incremental Compile
 set elapsed_time [expr { ([clock seconds] - $start_time) / 60.0} ]
 puts [format "##### Running Incremental Compile. Runtime: %.2f mins #####" $elapsed_time]
 compile_ultra -incremental -gate_clock -scan -no_autoungroup
+set_ideal_network [get_ports {clk test_se test_tm}]
 
 ##############################
 # STEP: Outputs and Reports
@@ -206,11 +253,12 @@ set elapsed_time [expr { ([clock seconds] - $start_time) / 60.0} ]
 puts [format "##### Running Outputs and Reports. Runtime: %.2f mins #####" $elapsed_time]
 
 ###############################
-# path group re-setup - some path graph may have become invalid during design compile
+# path group re-setup - clear stale pre-compile SEQGEN pin references first!
+remove_path_group {inputs output comb reg2reg}
 set non_clk_inputs [remove_from_collection [all_inputs] [get_ports {clk test_se test_tm}]]
-group_path -name inputs -from $non_clk_inputs
-group_path -name output -to [all_outputs]
-group_path -name comb -from $non_clk_inputs -to [all_outputs]
+group_path -name inputs  -from $non_clk_inputs
+group_path -name output  -to [all_outputs]
+group_path -name comb    -from $non_clk_inputs -to [all_outputs]
 group_path -name reg2reg -from [all_registers -clock_pins] -to [all_registers -data_pins]
 
 ##############################
@@ -275,11 +323,14 @@ redirect -append -file ${REPORT_DIR}/${DESIGN_NAME}.area.rpt {
 report_reference -hierarchy -nosplit        > ${REPORT_DIR}/${DESIGN_NAME}.ref.rpt
 report_qor -significant_digits 4            > ${REPORT_DIR}/${DESIGN_NAME}.qor.rpt
 report_power -hierarchy -verbose -nosplit   > ${REPORT_DIR}/${DESIGN_NAME}.power.rpt
+report_power -analysis_effort high -verbose -nosplit > ${REPORT_DIR}/${DESIGN_NAME}.power.summary.rpt
+report_clock_gating -nosplit -verbose                > ${REPORT_DIR}/${DESIGN_NAME}.clock_gating.rpt
 redirect -append -file ${REPORT_DIR}/${DESIGN_NAME}.power.rpt {printenv LOGNAME}
 report_constraint -all_violators -significant_digits 4 -nosplit > ${REPORT_DIR}/${DESIGN_NAME}.constraint.rpt
 check_design                                > ${REPORT_DIR}/${DESIGN_NAME}.check_design.rpt
 check_timing                                > ${REPORT_DIR}/${DESIGN_NAME}.check_timing.rpt
 report_fsm					                > ${REPORT_DIR}/${DESIGN_NAME}.fsm.rpt
+report_saif -hierarchy -rtl_saif -missing   > ${REPORT_DIR}/${DESIGN_NAME}.saif_map.rpt
 redirect -append -file ${REPORT_DIR}/${DESIGN_NAME}.fsm.rpt {printenv LOGNAME}
 
 foreach_in_collection group [get_path_groups] {

@@ -56,7 +56,7 @@ SVUNIT_DUT_F := $(abspath $(SVUNIT_OUT)/dut.f)
 SVUNIT_DIRS  := --directory ../../src/tb/module --directory ../../src/tb/full
 
 SVUNIT_FLAGS := -s vcs -f $(SVUNIT_DUT_F) \
-                -d SVUNIT_TIMEOUT=500000ns \
+                -d SVUNIT_TIMEOUT=10s \
                 -c -full64 -c -Mupdate -c +v2k -c -sverilog -c -timescale=1ns/1ns -c -kdb \
                 -c "-l compile.log" \
 				-c -debug_acc+all+dmptf -c -debug_region+cell+encrypt \
@@ -123,5 +123,14 @@ $(FILELIST): $(RTL_SOURCES)
 synth: $(FILELIST)
 	@echo "==> Running Design Compiler for top module: $(TOP_MODULE)"
 	@cd $(SYNTH_DIR) && DESIGN_NAME=$(DESIGN_NAME) TOP_MODULE=$(TOP_MODULE) dc_shell-t -f $(DC_SCRIPT)
+
+saif: $(RTL_SOURCES)
+	@mkdir -p $(BUILD_DIR)/saif $(SYNTH_DIR)
+	cd $(BUILD_DIR)/saif && $(VCS) -full64 -Mupdate +v2k -sverilog -timescale=1ns/1ns \
+		-debug_acc+all+dmptf -debug_region+cell+encrypt \
+		$(RTL_SOURCES) $(abspath src/tb/top/me_top_saif_tb.sv) \
+		-top me_top_saif_tb -o simv_saif -l saif_compile.log
+	cd $(BUILD_DIR)/saif && ./simv_saif -l saif_run.log
+	mv $(BUILD_DIR)/saif/me_top_rtl.saif $(SYNTH_DIR)/me_top_rtl.saif
 
 .PHONY: all build clean test test-module test-full list-tests filelist synth
