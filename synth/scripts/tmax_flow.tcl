@@ -21,8 +21,7 @@ add_nofaults -module sram_32x480
 
 ###################################################################
 # Run
-read_test_protocol ./outputs/h264_dft.spf
-run_drc
+read_test_protocol ./outputs/h264_dft/h264_dft.spf
 run_atpg -auto
 
 ###################################################################
@@ -32,4 +31,3 @@ report_summaries > ${REPORT_DIR}/${DESIGN_NAME}.tmax_summary.rpt
 report_faults -all > ${REPORT_DIR}/${DESIGN_NAME}.faults.rpt
 
 puts "##### TetraMAX ATPG Completed Successfully #####"
-exit

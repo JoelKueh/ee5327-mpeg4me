@@ -1,6 +1,10 @@
 ###############################################
 # Clock Definition
-create_clock -name clk -period 1.25 [get_ports clk]
+if {[info exists ::env(CLK_PERIOD)]} {
+    set clk_period $::env(CLK_PERIOD)
+} else {
+    set clk_period 1.25;
+}
 set_dont_touch_network [get_clocks clk]
 set_clock_uncertainty -setup 0.20 [get_clocks clk]
 
