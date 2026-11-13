@@ -122,7 +122,9 @@ $(FILELIST): $(RTL_SOURCES)
 
 synth: $(FILELIST)
 	@echo "==> Running Design Compiler for top module: $(TOP_MODULE)"
-	@cd $(SYNTH_DIR) && DESIGN_NAME=$(DESIGN_NAME) TOP_MODULE=$(TOP_MODULE) dc_shell-t -f $(DC_SCRIPT)
+	@cd $(SYNTH_DIR) && \
+		DESIGN_NAME=$(DESIGN_NAME) TOP_MODULE=$(TOP_MODULE) CLK_PERIOD=$(CLK_PERIOD) \
+		dc_shell-t -f $(DC_SCRIPT)
 
 saif: $(RTL_SOURCES)
 	@mkdir -p $(BUILD_DIR)/saif $(SYNTH_DIR)
