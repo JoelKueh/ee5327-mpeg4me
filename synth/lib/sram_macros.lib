@@ -88,10 +88,10 @@ library (sram_macros_lib) {
     }
 
     /* =================================================================
-     * CELL 1: sram_32x384 (Area: 5800.0 um^2)
+     * CELL 1: sram_32x384 (Area: 3686.4 um^2 @ 0.3 um^2/bit)
      * ================================================================= */
     cell (sram_32x384) {
-        area : 5800.0;
+        area : 3686.4;
         dont_touch : true;
         dont_use : true;
         is_macro_cell : true;
@@ -222,10 +222,10 @@ library (sram_macros_lib) {
     }
 
     /* =================================================================
-     * CELL 2: sram_32x416 (Area: 6200.0 um^2)
+     * CELL 2: sram_32x416 (Area: 3993.6 um^2 @ 0.3 um^2/bit)
      * ================================================================= */
     cell (sram_32x416) {
-        area : 6200.0;
+        area : 3993.6;
         dont_touch : true;
         dont_use : true;
         is_macro_cell : true;
@@ -343,10 +343,10 @@ library (sram_macros_lib) {
     }
 
     /* =================================================================
-     * CELL 3: sram_32x448 (Area: 6600.0 um^2)
+     * CELL 3: sram_32x448 (Area: 4300.8 um^2 @ 0.3 um^2/bit)
      * ================================================================= */
     cell (sram_32x448) {
-        area : 6600.0;
+        area : 4300.8;
         dont_touch : true;
         dont_use : true;
         is_macro_cell : true;
@@ -464,10 +464,10 @@ library (sram_macros_lib) {
     }
 
     /* =================================================================
-     * CELL 4: sram_32x480 (Area: 7050.0 um^2)
+     * CELL 4: sram_32x480 (Area: 4608.0 um^2 @ 0.3 um^2/bit)
      * ================================================================= */
     cell (sram_32x480) {
-        area : 7050.0;
+        area : 4608.0;
         dont_touch : true;
         dont_use : true;
         is_macro_cell : true;

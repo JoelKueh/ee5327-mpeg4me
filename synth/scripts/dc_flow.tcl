@@ -6,6 +6,7 @@
 # Set design variables
 set DESIGN_NAME $::env(DESIGN_NAME)
 set TOP_MODULE  $::env(TOP_MODULE)
+set FLATTEN false
 
 set OUT_DIR ./outputs/${DESIGN_NAME}
 set REPORT_DIR ./reports/${DESIGN_NAME}
@@ -104,6 +105,7 @@ if {[sizeof_collection $sram_insts] > 0} {
 }
 
 # Disable register merging for the PE array
+set pe_regs [get_cells -hierarchical -filter "full_name =~ *fs_pe_array* && is_sequential == true"]
 if {[sizeof_collection [get_designs -quiet fs_pe_array*]] > 0} {
   	puts "==> INFORMATION: Disabling register merging on fs_pe_array."
   	set_register_merging [get_designs fs_pe_array*] false
@@ -166,7 +168,11 @@ group_path -name reg2reg -from [all_registers] -to [all_registers]
 # Primary Synthesis (Compile Ultra)
 ###################################################################
 
-compile_ultra -gate_clock -scan -no_autoungroup
+if (${FLATTEN}) {
+    compile_ultra -gate_clock -scan
+} else {
+    compile_ultra -gate_clock -scan -no_autoungroup
+}
 split_clock_gates -max_fanout 32
 write_file -format verilog -hierarchy -output ${OUT_DIR}/${DESIGN_NAME}_pre_dft.vg
 
@@ -213,7 +219,11 @@ insert_dft
 # Incremental Compile (Post-DFT Timing)
 ###################################################################
 
-compile_ultra -incremental -gate_clock -scan -no_autoungroup
+if (${FLATTEN}) {
+    compile_ultra -incremental -gate_clock -scan
+} else {
+    compile_ultra -incremental -gate_clock -scan -no_autoungroup
+}
 set_ideal_network [get_ports {clk test_se test_tm}]
 
 remove_path_group {inputs output comb reg2reg}

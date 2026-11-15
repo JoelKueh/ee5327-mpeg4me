@@ -8,7 +8,7 @@ FREQS=(68.04 136.08 272.16 544.32)
 for freq in "${FREQS[@]}"; do
     # Replace the dot with 'p' for the design name (e.g., 68.04 -> 68p04)
     freq_slug="${freq//./p}"
-    design_name="h264_${freq_slug}"
+    design_name="h264_flat_${freq_slug}"
 
     echo "========================================================"
     echo "==> Running sweep for Target Frequency: ${freq} MHz"
