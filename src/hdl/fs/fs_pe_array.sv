@@ -18,29 +18,23 @@ module fs_pe_array (
 
     import me_pkg::*;
 
-    logic [SAD_4X4_W-1:0] pe_sad[4][WINDOW_SIZE];        // Results from each PE row
-    logic clear_q[4] /* synopsys preserve_sequential */; // Pipelined row clear signal
-    logic clear_d[4];
-    logic stall_q[4] /* synopsys preserve_sequential */; // Pipelined row stall signal
-    logic stall_d[4];
+    logic [3:0][PEL_W-1:0] cb_q[4], cb_d[4];   // Candidate frame ring
+    logic [SAD_4X4_W-1:0] pe_sad[WINDOW_SIZE]; // Results from each PE row
+    logic clear_q, clear_d;                    // Pipelined row clear signal
+    logic stall_q, stall_d;                    // Pipelined row stall signal
 
-    logic [3:0][PEL_W-1:0] cb_q[4], cb_d[4];       // Ring of candidate frame 
-    logic [1:0] row_select_q[2], row_select_d[2];  // Row select signal
-
-    // Instantiate the rows of engines
-    genvar row, col;
+    // Instantiate the row of engines
+    genvar col;
     generate
-        for (row = 0; row < 4; row++) begin : pe_array_row
-            for (col = 0; col < WINDOW_SIZE; col++) begin : pe_array_col
-                fs_pe pe (
-                    .clk(clk),
-                    .stall(stall_q[row]),
-                    .clear(clear_q[row]),
-                    .rb(rb[col+3:col]),
-                    .cb(cb_q[row]),
-                    .sad(pe_sad[row][col])
-                );
-            end
+        for (col = 0; col < WINDOW_SIZE; col++) begin : pe_array_col
+            fs_pe pe (
+                .clk(clk),
+                .stall(stall_q),
+                .clear(clear_q),
+                .rb(rb[col+3:col]),
+                .cb(cb_q),
+                .sad(pe_sad[col])
+            );
         end
     endgenerate
 
