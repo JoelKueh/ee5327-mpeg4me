@@ -24,8 +24,8 @@ module fs_computer (
 
     output logic sad_valid,                                               // Output SAD valid
     output logic [me_pkg::SW_IDX_W-1:0] sad_sw_idx,                       // SAD search window offset
-    output logic [me_pkg::SAD_4X4_W-1:0] sad_4x4[2][me_pkg::WINDOW_SIZE], // Buffered output 4x4 row results
-    output logic [me_pkg::SAD_8X4_W-1:0] sad_4x8[me_pkg::WINDOW_SIZE],    // Buffered output 4x8 row results
+    output logic [me_pkg::SAD_4X4_W-1:0] sad_4x4[4][me_pkg::WINDOW_SIZE], // Buffered output 4x4 row results
+    output logic [me_pkg::SAD_8X4_W-1:0] sad_4x8[2][me_pkg::WINDOW_SIZE], // Buffered output 4x8 row results
     output logic [me_pkg::SAD_8X4_W-1:0] sad_8x4[2][me_pkg::WINDOW_SIZE], // Buffered output 8x4 row results
     output logic [me_pkg::SAD_8X8_W-1:0] sad_8x8[me_pkg::WINDOW_SIZE]     // Buffered output 8x8 row results
 );
@@ -37,15 +37,15 @@ module fs_computer (
     logic [3:0][me_pkg::PEL_W-1:0] cb_q[4][4], cb_d[4][4];
     logic [me_pkg::RB_ROW_IDX_W-1:0] rb_row_idx_q, rb_row_idx_d;
     logic [1:0] subcycle_idx_q, subcycle_idx_d;
-    logic stall_q[4], stall_d[4];
+    logic stall_q[16], stall_d[16];
 
     // Output SAD buffers and valid signal
     logic sad_valid_q, sad_valid_d;
     logic [me_pkg::SW_IDX_W-1:0]  sad_sw_idx_q, sad_sw_idx_d;
     logic [me_pkg::SAD_4X4_W-1:0] sad_4x4_q[4][me_pkg::WINDOW_SIZE], sad_4x4_d[4][me_pkg::WINDOW_SIZE];
     logic [me_pkg::SAD_8X4_W-1:0] sad_4x8_q[2][me_pkg::WINDOW_SIZE], sad_4x8_d[2][me_pkg::WINDOW_SIZE];
-    logic [me_pkg::SAD_8X4_W-1:0] sad_8x4_q[4][me_pkg::WINDOW_SIZE], sad_8x4_d[4][me_pkg::WINDOW_SIZE];
-    logic [me_pkg::SAD_8X8_W-1:0] sad_8x8_q[2][me_pkg::WINDOW_SIZE], sad_8x8_d[2][me_pkg::WINDOW_SIZE];
+    logic [me_pkg::SAD_8X4_W-1:0] sad_8x4_q[2][me_pkg::WINDOW_SIZE], sad_8x4_d[2][me_pkg::WINDOW_SIZE];
+    logic [me_pkg::SAD_8X8_W-1:0] sad_8x8_q[me_pkg::WINDOW_SIZE],    sad_8x8_d[me_pkg::WINDOW_SIZE];
 
     genvar i;
     generate
@@ -53,7 +53,7 @@ module fs_computer (
         for (i = 0; i < WINDOW_SIZE; i++) begin : g_ul
             fs_pe u_pe (
                 .clk   (clk),
-                .stall (stall_q[0]),
+                .stall (stall_q[0 + i/8]),
                 .clear (subcycle_idx_q == 2'd3),
                 .rb    (rb_q[0][i +: 4]),
                 .cb    (cb_q[0][0]),
@@ -65,7 +65,7 @@ module fs_computer (
         for (i = 0; i < WINDOW_SIZE; i++) begin : g_ur
             fs_pe u_pe (
                 .clk   (clk),
-                .stall (stall_q[1]),
+                .stall (stall_q[4 + i/8]),
                 .clear (subcycle_idx_q == 2'd3),
                 .rb    (rb_q[0][(i + 4) +: 4]),
                 .cb    (cb_q[1][0]),
@@ -77,7 +77,7 @@ module fs_computer (
         for (i = 0; i < WINDOW_SIZE; i++) begin : g_ll
             fs_pe u_pe (
                 .clk   (clk),
-                .stall (stall_q[2]),
+                .stall (stall_q[8 + i/8]),
                 .clear (subcycle_idx_q == 2'd3),
                 .rb    (rb_q[4][i +: 4]),
                 .cb    (cb_q[2][0]),
@@ -89,7 +89,7 @@ module fs_computer (
         for (i = 0; i < WINDOW_SIZE; i++) begin : g_lr
             fs_pe u_pe (
                 .clk   (clk),
-                .stall (stall_q[3]),
+                .stall (stall_q[12 + i/8]),
                 .clear (subcycle_idx_q == 2'd3),
                 .rb    (rb_q[4][(i + 4) +: 4]),
                 .cb    (cb_q[3][0]),
@@ -114,7 +114,7 @@ module fs_computer (
         subcycle_idx_d = subcycle_idx;
 
         // Assign array control signal registers, these do not need to stall.
-        for (int i = 0; i < 4; i++) stall_d[i] = stall;
+        for (int i = 0; i < 16; i++) stall_d[i] = stall;
     end
 
     always_ff @(posedge clk) begin
@@ -140,14 +140,14 @@ module fs_computer (
             sad_4x8_d[1][i] = sad_4x4_q[2][i] + sad_4x4_q[3][i];
 
             sad_8x4_d[0][i] = sad_4x4_q[0][i] + sad_4x4_q[2][i];
-            sad_8x4_d[0][i] = sad_4x4_q[1][i] + sad_4x4_q[3][i];
+            sad_8x4_d[1][i] = sad_4x4_q[1][i] + sad_4x4_q[3][i];
 
             sad_8x8_d[i]    = sad_8x4_d[0][i] + sad_8x4_d[1][i];
         end
     end
 
     // Buffer output SADs
-    always_ff begin
+    always_ff @(posedge clk) begin
         sad_valid_q  <= sad_valid_d;
         sad_sw_idx_q <= sad_sw_idx_d;
         sad_4x4_q    <= sad_4x4_d;
@@ -163,186 +163,5 @@ module fs_computer (
     assign sad_4x8    = sad_4x8_q;
     assign sad_8x4    = sad_8x4_q;
     assign sad_8x8    = sad_8x8_q;
-
-    // Stage 0: Buffered Reference Block
-    logic [WINDOW_SIZE+6:0][PEL_W-1:0] rb_q, rb_d;
-
-    // Stage 2: Buffered SAD outputs
-    logic [SAD_4X4_W-1:0] sad_4x4_q[2][WINDOW_SIZE], sad_4x4_d[2][WINDOW_SIZE];
-    logic [SAD_8X4_W-1:0] sad_4x8_q[WINDOW_SIZE], sad_4x8_d[WINDOW_SIZE];
-    logic [SAD_8X4_W-1:0] sad_8x4_q[2][WINDOW_SIZE], sad_8x4_d[2][WINDOW_SIZE];
-    logic [SAD_8X8_W-1:0] sad_8x8_q[WINDOW_SIZE], sad_8x8_d[WINDOW_SIZE];
-
-    // Pipeline control tracking across S0, S1 (PE), and S2 (Output)
-    logic upper_half_q[3], upper_half_d[3];
-    logic [SW_IDX_W-1:0] sad_sw_idx_q[3], sad_sw_idx_d[3];
-    logic valid_q[3], valid_d[3];
-    logic stall_q[2], stall_d[2];
-
-    // Instantiate 4 4x4_SAD PE arrays arranged as a full 8x8 block
-    fs_pe_array pe_array_l (
-        .clk(clk),
-        .load(rb_row_idx < 4),
-        .stall_next(stall),
-        .row_idx_mod_next(rb_row_idx[1:0]),
-        .rb(rb_q[WINDOW_SIZE+2:0]),
-        .cb_next(cb[3:0]),
-        .sad(sad_4x4_d[0])
-    );
-
-    fs_pe_array pe_array_r (
-        .clk(clk),
-        .load(rb_row_idx < 4),
-        .stall_next(stall),
-        .row_idx_mod_next(rb_row_idx[1:0]),
-        .rb(rb_q[WINDOW_SIZE+6:4]),
-        .cb_next(cb[7:4]),
-        .sad(sad_4x4_d[1])
-    );
-
-    // Instantiate RAMs to hold the SAD values from the upper rows.
-    sram_if #(.ADDR_W(SW_IDX_W), .DATA_W(WINDOW_SIZE * SAD_4X4_W)) ram_a_if ();
-    sram_if #(.ADDR_W(SW_IDX_W), .DATA_W(WINDOW_SIZE * SAD_4X4_W)) ram_b_if ();
-
-    sram_wrapper #(
-        .ADDR_W(SW_IDX_W),
-        .DATA_W(WINDOW_SIZE * SAD_4X4_W)
-    ) ram_a (
-        clk,
-        ram_a_if
-    );
-
-    sram_wrapper #(
-        .ADDR_W(SW_IDX_W),
-        .DATA_W(WINDOW_SIZE * SAD_4X4_W)
-    ) ram_b (
-        clk,
-        ram_b_if
-    );
-
-    always_comb begin
-        // Prevent latches on rams
-        ram_a_if.wr_en   = '0;
-        ram_a_if.wr_addr = 'x;
-        ram_a_if.wr_data = 'x;
-        ram_a_if.rd_en   = '0;
-        ram_a_if.rd_addr = 'x;
-
-        ram_b_if.wr_en   = '0;
-        ram_b_if.wr_addr = 'x;
-        ram_b_if.wr_data = 'x;
-        ram_b_if.rd_en   = '0;
-        ram_b_if.rd_addr = 'x;
-
-        // Stage 1: Save to RAM when PE output (sad_4x4_d) is valid for the upper half
-        if (!stall_q[1] && upper_half_q[1] && valid_q[1]) begin
-            ram_a_if.wr_en   = 1'b1;
-            ram_a_if.wr_addr = sad_sw_idx_q[1];
-            for (int col = 0; col < WINDOW_SIZE; col++) begin
-                ram_a_if.wr_data[col*SAD_4X4_W +: SAD_4X4_W] = sad_4x4_d[0][col];
-            end
-
-            ram_b_if.wr_en   = 1'b1;
-            ram_b_if.wr_addr = sad_sw_idx_q[1];
-            for (int col = 0; col < WINDOW_SIZE; col++) begin
-                ram_b_if.wr_data[col*SAD_4X4_W +: SAD_4X4_W] = sad_4x4_d[1][col];
-            end
-        end
-
-        // Stage 0: Retrieve from RAM one cycle before sad_4x4_d is valid
-        // so rd_data arrives in Stage 1 alongside sad_4x4_d
-        if (!stall_q[0] && !upper_half_q[0] && valid_q[0]) begin
-            ram_a_if.rd_en   = 1'b1;
-            ram_a_if.rd_addr = sad_sw_idx_q[0];
-
-            ram_b_if.rd_en   = 1'b1;
-            ram_b_if.rd_addr = sad_sw_idx_q[0];
-        end
-    end
-
-    always_comb begin
-        stall_d[0] = stall;
-        stall_d[1] = stall_q[0];
-
-        // Stage 0 inputs (aligned with rb_q)
-        rb_d            = rb;
-        valid_d[0]      = (rb_row_idx >= 3);
-        upper_half_d[0] = upper_half;
-        sad_sw_idx_d[0] = (rb_row_idx >= 3) ? SW_IDX_W'(rb_row_idx - 3'd3) : '0;
-
-        // Stage 1 inputs (aligned with PE acc_q / sad_4x4_d)
-        valid_d[1]      = valid_q[0];
-        upper_half_d[1] = upper_half_q[0];
-        sad_sw_idx_d[1] = sad_sw_idx_q[0];
-
-        // Stage 2 inputs (aligned with buffered outputs sad_4x4_q..sad_8x8_q)
-        valid_d[2]      = valid_q[1];
-        upper_half_d[2] = upper_half_q[1];
-        sad_sw_idx_d[2] = sad_sw_idx_q[1];
-
-        // Compute the 4x8, 8x4 and 8x8 results in one cycle
-        for (int col = 0; col < WINDOW_SIZE; col++) begin
-            sad_4x8_d[col] = sad_4x4_d[0][col] + sad_4x4_d[1][col];
-        end
-
-        // Compute the 8x4 and 8x8 SADs from the inputs and RAM
-        for (int col = 0; col < WINDOW_SIZE; col++) begin
-            sad_8x4_d[0][col] = sad_4x4_d[0][col] + ram_a_if.rd_data[col*SAD_4X4_W +: SAD_4X4_W];
-            sad_8x4_d[1][col] = sad_4x4_d[1][col] + ram_b_if.rd_data[col*SAD_4X4_W +: SAD_4X4_W];
-
-            sad_8x8_d[col] = sad_8x4_d[0][col] + sad_8x4_d[1][col];
-        end
-    end
-
-    // Buffer the output of the 4x4 PE arrays
-    always_ff @(posedge clk) begin
-        if (clear) begin
-            for (int i = 0; i < 2; i++) stall_q[i] <= '0;
-            for (int i = 0; i < 3; i++) begin
-                valid_q[i]      <= '0;
-                upper_half_q[i] <= '0;
-                sad_sw_idx_q[i] <= '0;
-            end
-        end else begin
-            stall_q <= stall_d;
-
-            // Stage 0 registers (buffered input level)
-            if (!stall) begin
-                rb_q            <= rb_d;
-                valid_q[0]      <= valid_d[0];
-                upper_half_q[0] <= upper_half_d[0];
-                sad_sw_idx_q[0] <= sad_sw_idx_d[0];
-            end
-
-            // Stage 1 control registers (aligned with fs_pe acc_q which stalls on stall_q)
-            if (!stall_q[0]) begin
-                valid_q[1]      <= valid_d[1];
-                upper_half_q[1] <= upper_half_d[1];
-                sad_sw_idx_q[1] <= sad_sw_idx_d[1];
-            end
-
-            // Stage 2 output registers
-            if (!stall_q[1]) begin
-                sad_4x4_q       <= sad_4x4_d;
-                sad_4x8_q       <= sad_4x8_d;
-                sad_8x4_q       <= sad_8x4_d;
-                sad_8x8_q       <= sad_8x8_d;
-                valid_q[2]      <= valid_d[2];
-                upper_half_q[2] <= upper_half_d[2];
-                sad_sw_idx_q[2] <= sad_sw_idx_d[2];
-            end
-        end
-    end
-
-    // Assign the 8x4 and 8x8 output
-    always_comb begin
-        sad_4x_valid = valid_q[2] && !stall_q[1];
-        sad_4x4      = sad_4x4_q;
-        sad_4x8      = sad_4x8_q;
-        sad_8x_valid = sad_4x_valid && !upper_half_q[2];
-        sad_8x4      = sad_8x4_q;
-        sad_8x8      = sad_8x8_q;
-        sad_sw_idx   = sad_sw_idx_q[2];
-    end
 
 endmodule
