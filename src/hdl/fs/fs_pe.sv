@@ -1,50 +1,42 @@
 // fs_pe.sv
 //
-// Computes a 4x4 SAD over four cycles (streamed one row of data at a time).
+// Single time-multiplexed PE computing 4 interleaved 4x4 SADs (1 finished SAD every 4 cycles).
+// Operates on acc_q[0] while acc_q[1:2] are only used to hold the intermediate results.
 //
 
-module fs_pe (
-    input logic clk,   // The primary clock
-    input logic stall, // Compute unit stall signal
-    input logic clear, // Synchronous, pipelined accumulator clear signal
+module fs_pe import me_pkg::*; (
+    input  logic                  clk,
+    input  logic                  stall,
+    input  logic                  clear,
 
-    input logic [3:0][me_pkg::PEL_W-1:0] rb,  // Reference block input
-    input logic [3:0][me_pkg::PEL_W-1:0] cb,  // Current block input
-    output logic [me_pkg::SAD_4X4_W-1:0] sad  // Computed SAD output
+    input  logic [3:0][PEL_W-1:0] rb,
+    input  logic [3:0][PEL_W-1:0] cb,
+    output logic [SAD_4X4_W-1:0]  sad
 );
 
-    import me_pkg::*;
-
-    logic [    PEL_W-1:0] sad_l0[4];
-    logic [SAD_2X1_W-1:0] sad_l1[2];
-    logic [SAD_4X4_W-1:0] acc_q, acc_d;
+    logic [SAD_4X4_W-1:0] acc_q[3], acc_d[3];
+    logic [SAD_4X4_W-1:0] row_sad;
+    logic [SAD_4X4_W-1:0] prev_sad;
 
     always_comb begin
-        sad_l0[0] = rb[0] > cb[0] ? (rb[0] - cb[0]) : (cb[0] - rb[0]);
-        sad_l0[1] = rb[1] > cb[1] ? (rb[1] - cb[1]) : (cb[1] - rb[1]);
-        sad_l0[2] = rb[2] > cb[2] ? (rb[2] - cb[2]) : (cb[2] - rb[2]);
-        sad_l0[3] = rb[3] > cb[3] ? (rb[3] - cb[3]) : (cb[3] - rb[3]);
-
-        sad_l1[0] = sad_l0[0] + sad_l0[1];
-        sad_l1[1] = sad_l0[2] + sad_l0[3];
-
-        if (clear) begin
-            acc_d = {3'b000, sad_l1[0]} + {3'b000, sad_l1[1]};
-        end else begin
-            acc_d = acc_q + {3'b000, sad_l1[0]} + {3'b000, sad_l1[1]};
+		// Compute row SAD from input pixels
+        row_sad = '0;
+        for (int i = 0; i < 4; i++) begin
+            row_sad += (rb[i] > cb[i]) ? (rb[i] - cb[i]) : (cb[i] - rb[i]);
         end
+
+		// Update accumulator based on the sum of the previous and row SAD
+		for (int i = 1; i < 3; i++) acc_d[i] = acc_q[i-1];
+		prev_sad = clear ? '0 : acc_q[2];
+		acc_d[0] = prev_sad + row_sad;
     end
 
     always_ff @(posedge clk) begin
-        if (stall) begin
-            acc_q <= acc_q;
-        end else begin
-            acc_q <= acc_d;
+        if (!stall) begin
+			acc_q <= acc_d;
         end
     end
 
-    always_comb begin
-        sad = acc_q;
-    end
+    assign sad = acc_q[0];
 
 endmodule
