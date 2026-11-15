@@ -3,7 +3,13 @@
 // Performs first-level SAD computation using four SAD PE arrays.
 // Computes all 4x4, 4x8, 8x4, and 8x8 SADs.
 //
-// Buffers its own output, adding a one-cycle latency to the pipeline.
+// Invariant 1:
+// rb_row_idx_q and subcycle_idx_q hold the row index currently being
+// driven to the PE arrays.
+//
+// Invariant 2:
+// When rb_row_idx_q>=3 and subcycle_idx_q==2 is driven to the PE arrays,
+// the output corresponding to rb_row_idx_q==0 is valid.
 //
 
 module fs_computer (
@@ -48,7 +54,7 @@ module fs_computer (
             fs_pe u_pe (
                 .clk   (clk),
                 .stall (stall_q[0]),
-                .clear (subcycle_idx_q == 2'd0),
+                .clear (subcycle_idx_q == 2'd3),
                 .rb    (rb_q[0][i +: 4]),
                 .cb    (cb_q[0][0]),
                 .sad   (sad_4x4_d[0][i])
@@ -60,7 +66,7 @@ module fs_computer (
             fs_pe u_pe (
                 .clk   (clk),
                 .stall (stall_q[1]),
-                .clear (subcycle_idx_q == 2'd0),
+                .clear (subcycle_idx_q == 2'd3),
                 .rb    (rb_q[0][(i + 4) +: 4]),
                 .cb    (cb_q[1][0]),
                 .sad   (sad_4x4_d[1][i])
@@ -72,7 +78,7 @@ module fs_computer (
             fs_pe u_pe (
                 .clk   (clk),
                 .stall (stall_q[2]),
-                .clear (subcycle_idx_q == 2'd0),
+                .clear (subcycle_idx_q == 2'd3),
                 .rb    (rb_q[4][i +: 4]),
                 .cb    (cb_q[2][0]),
                 .sad   (sad_4x4_d[2][i])
@@ -84,7 +90,7 @@ module fs_computer (
             fs_pe u_pe (
                 .clk   (clk),
                 .stall (stall_q[3]),
-                .clear (subcycle_idx_q == 2'd0),
+                .clear (subcycle_idx_q == 2'd3),
                 .rb    (rb_q[4][(i + 4) +: 4]),
                 .cb    (cb_q[3][0]),
                 .sad   (sad_4x4_d[3][i])
@@ -103,8 +109,8 @@ module fs_computer (
             cb_d[i][0] = rb_row_idx < 4 ? cb[i] : cb_q[i][3];
         end
 
-        // Assign indicies
-        rb_row_idx_d = rb_row_idx;
+        // Assign indicies: maintain invariant 1
+        rb_row_idx_d = rb_row_idx > 3 ? rb_row_idx - 4 : 0;
         subcycle_idx_d = subcycle_idx;
 
         // Assign array control signal registers, these do not need to stall.
@@ -123,9 +129,10 @@ module fs_computer (
 
     always_comb begin
         // Compute output SAD valid signal
-        sad_valid_d = (!stall) && (rb_row_idx_q > 3) && (subcycle_idx_q == 2'd0);
+        sad_valid_d = (!stall) && (rb_row_idx_q > 3) && (subcycle_idx_q == 2'd3);
 
-        // Compute output SW idx
+        // Compute output SW idx: trust invariant 2
+        sad_sw_idx_d = rb_row_idx_q - 3;
 
         // Compute output SADs
         for (int i = 0; i < WINDOW_SIZE; i++) begin
