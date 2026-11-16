@@ -28,38 +28,38 @@ module sram_macro_bb #(
 `endif
 endmodule
 
-module sram_32x384 (
+module sram_128x96 (
     input  wire         CLK, WEN, REN, DFT_BYPASS,
-    input  wire [4:0]   WADDR, RADDR,
-    input  wire [383:0] WDATA,
-    output wire [383:0] RDATA
+    input  wire [6:0]   WADDR, RADDR,
+    input  wire [95:0] WDATA,
+    output wire [95:0] RDATA
 );
-    sram_macro_bb #(.ADDR_W(5), .DATA_W(384)) u_mem (.*);
+    sram_macro_bb #(.ADDR_W(7), .DATA_W(96)) u_mem (.*);
 endmodule
 
-module sram_32x416 (
+module sram_128x104 (
     input  wire         CLK, WEN, REN, DFT_BYPASS,
-    input  wire [4:0]   WADDR, RADDR,
-    input  wire [415:0] WDATA,
-    output wire [415:0] RDATA
+    input  wire [6:0]   WADDR, RADDR,
+    input  wire [103:0] WDATA,
+    output wire [103:0] RDATA
 );
-    sram_macro_bb #(.ADDR_W(5), .DATA_W(416)) u_mem (.*);
+    sram_macro_bb #(.ADDR_W(7), .DATA_W(104)) u_mem (.*);
 endmodule
 
-module sram_32x448 (
+module sram_128x112 (
     input  wire         CLK, WEN, REN, DFT_BYPASS,
-    input  wire [4:0]   WADDR, RADDR,
-    input  wire [447:0] WDATA,
-    output wire [447:0] RDATA
+    input  wire [6:0]   WADDR, RADDR,
+    input  wire [111:0] WDATA,
+    output wire [111:0] RDATA
 );
-    sram_macro_bb #(.ADDR_W(5), .DATA_W(448)) u_mem (.*);
+    sram_macro_bb #(.ADDR_W(7), .DATA_W(112)) u_mem (.*);
 endmodule
 
-module sram_32x480 (
+module sram_128x120 (
     input  wire         CLK, WEN, REN, DFT_BYPASS,
-    input  wire [4:0]   WADDR, RADDR,
-    input  wire [479:0] WDATA,
-    output wire [479:0] RDATA
+    input  wire [6:0]   WADDR, RADDR,
+    input  wire [119:0] WDATA,
+    output wire [119:0] RDATA
 );
-    sram_macro_bb #(.ADDR_W(5), .DATA_W(480)) u_mem (.*);
+    sram_macro_bb #(.ADDR_W(7), .DATA_W(120)) u_mem (.*);
 endmodule
