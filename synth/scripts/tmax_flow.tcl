@@ -22,6 +22,8 @@ add_nofaults -module sram_128x120
 ###################################################################
 # Run
 read_test_protocol ./outputs/h264_demux/h264_demux.spf
+set_faults -fault_coverage
+set_atpg -abort_limit 200 -merge high
 run_atpg -auto
 
 ###################################################################

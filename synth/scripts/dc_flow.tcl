@@ -67,9 +67,12 @@ if {!$link_status} {
 }
 
 # Add switching information into the design.
-if {[file exists ./me_top_rtl.saif]} {
-  puts "==> INFORMATION: Reading RTL switching activity from ./me_top_rtl.saif"
-  read_saif -auto_map_names -input ./inputs/constraints/me_top_rtl.saif -instance_name me_top_saif_tb/dut -verbose
+set saif_file "./inputs/constraints/me_top_rtl.saif"
+if {[file exists $saif_file]} {
+    puts "==> INFORMATION: Reading RTL switching activity from $saif_file"
+    read_saif -auto_map_names -input $saif_file -instance_name me_top_saif_tb/dut -verbose
+} else {
+    puts "==> WARNING: SAIF file $saif_file not found!"
 }
 
 ###################################################################
@@ -92,9 +95,7 @@ set_app_var auto_wire_load_selection true
 set_wire_load_mode top
 set_operating_conditions -analysis_type bc_wc -max tt0p8v25c
 set_critical_range 0.1 [current_design]
-set_max_fanout 32 [current_design]
-set_max_transition 0.25 [current_design]
-set_app_var higH_FANOUT_NET_threshold 1000
+set_app_var high_fanout_net_threshold 1000
 set_cost_priority -delay
 
 # Lock SRAM macros
@@ -102,20 +103,6 @@ set sram_insts [get_cells -hierarchical -filter "ref_name =~ sram_32x*"]
 if {[sizeof_collection $sram_insts] > 0} {
  	puts "==> INFORMATION: Setting dont_touch on [sizeof_collection $sram_insts] SRAM macro instances."
  	set_dont_touch $sram_insts
-}
-
-# Disable register merging for the PE array
-set pe_fanout_regs [get_cells -hierarchical -filter "full_name =~ *stall_q_reg* || full_name =~ *clear_q_reg*"]
-if {[sizeof_collection $pe_fanout_regs] > 0} {
-    puts "Found [sizeof_collection $pe_fanout_regs] pipeline registers."
-    foreach_in_collection reg $pe_fanout_regs {
-        puts "  [get_object_name $reg]"
-    }
-    set_register_merging $pe_fanout_regs false
-    set_attribute $pe_fanout_regs preserve_sequential true
-} else {
-    error "ERROR: No stall_q_reg or clear_q_reg registers found!"
-	suspend
 }
 
 ###################################################################
@@ -172,7 +159,6 @@ if (${FLATTEN}) {
 } else {
     compile_ultra -gate_clock -scan -no_autoungroup
 }
-split_clock_gates -max_fanout 32
 write_file -format verilog -hierarchy -output ${OUT_DIR}/${DESIGN_NAME}_pre_dft.vg
 
 ###################################################################
@@ -181,6 +167,7 @@ write_file -format verilog -hierarchy -output ${OUT_DIR}/${DESIGN_NAME}_pre_dft.
 
 # Release case analysis so DFT sees active test signals
 remove_case_analysis [get_ports {test_se test_tm}]
+set_ideal_network [get_ports {clk test_se test_tm}]
 
 # Configure DFT signals and rules
 set_dft_signal -view existing_dft -type ScanClock   -timing {45 55} -port clk
@@ -191,7 +178,7 @@ set_dft_signal -view spec         -type ScanEnable  -port test_se
 set_dft_signal -view spec         -type TestMode    -active_state 1 -port test_tm
 
 set_dft_configuration -connect_mux_controls enable -connect_clock_gating enable
-set_scan_configuration -respect_async_ctrls true -replace false
+set_scan_configuration -respect_async_ctrls true -replace true
 
 # Insert DFT_BYPASS wire so that TMax stops complaining at me
 set sram_bypass_pins [get_pins -hierarchical */DFT_BYPASS]
@@ -209,15 +196,6 @@ if {[sizeof_collection $sram_bypass_pins] > 0} {
     exit
 }
 
-# Pause for manual inspection
-puts "========== VERIFY SRAM DFT_BYPASS CONNECTIONS =========="
-foreach_in_collection bp_pin $sram_bypass_pins {
-    puts "[get_object_name $bp_pin] -> \
-        [get_object_name [get_nets -of_objects $bp_pin]]"
-}
-puts "========== FLOW SUSPENDED =========="
-suspend
-
 create_test_protocol -infer_asynch -infer_clock
 
 # Run DRC, insert DFT, and verify coverage
@@ -228,19 +206,18 @@ insert_dft
 # Incremental Compile (Post-DFT Timing)
 ###################################################################
 
-if (${FLATTEN}) {
-    compile_ultra -incremental -gate_clock -scan
-} else {
-    compile_ultra -incremental -gate_clock -scan -no_autoungroup
-}
-set_ideal_network [get_ports {clk test_se test_tm}]
-
 remove_path_group {inputs output comb reg2reg}
 set non_clk_inputs [remove_from_collection [all_inputs] [get_ports {clk test_se test_tm}]]
 group_path -name inputs  -from $non_clk_inputs
 group_path -name output  -to [all_outputs]
 group_path -name comb    -from $non_clk_inputs -to [all_outputs]
 group_path -name reg2reg -from [all_registers -clock_pins] -to [all_registers -data_pins]
+
+if (${FLATTEN}) {
+    compile_ultra -incremental -gate_clock -scan
+} else {
+    compile_ultra -incremental -gate_clock -scan -no_autoungroup
+}
 
 ###################################################################
 # Clean Names and Write Outputs

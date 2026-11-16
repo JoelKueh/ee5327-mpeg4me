@@ -129,20 +129,28 @@
 
 == Updated Design: Reworked Computation Stage
 
+#include "diagrams/updates2.typ"
+
+== Updated Design: Reworked Processing Engine
+
 #components.side-by-side(
-  columns: (1.0fr, 1.00fr),
+  columns: (1.0fr, 1.0fr),
   gutter: 1.5em,
   [
-    - *Reduced Search Window Size:*
-      - Reference uses $64 times 64$ search window 
-      - My design reduces this to $32 times 32$
+    - *Row Merging*
+      - Now only one row per array
+      - Throughput cut by four
 
-    - *Reduced Maximum Block Size:*
-      - H.265 supports block size up to $64 times 64$
-      - H.264 supports up to $16 times 16$
-      - My design removes two of the three summation stages
+    - *Datapath Width Reduction*
+      - Stream SADs out of computer over four cycles with stride of four
+      - Summation and Comparator modules get much smaller
+
+    - *SRAM Width*
+      - Previously fat (around 32x400)
+      - Now more balanced (around 128x100)
+      - Improves routability and bit density
   ],
-  include "diagrams/updates2.typ",
+  include "diagrams/pe.typ"
 )
 
 == Verification: SVUnit Testbenches
@@ -203,7 +211,7 @@
 == Verification: Waveforms
 
 #figure(
-  image("images/computer_output.png", width: 90%)
+  image("images/pe_output.png", width: 90%)
 )
 
 #figure(
@@ -213,17 +221,17 @@
 == Evaluation: Performance
 
 - Computes minimum SADs for two $4 times 4$ sub-blocks per pass.
-- Each pass takes 35 cycles to stream the 35 rows from the refrence frame.
-- It takes 280 cycles to process one macroblock.
+- Each pass takes 156 cycles to stream the 39 rows from the refrence frame.
+- It takes 624 cycles to process one macroblock.
 
 #figure(
   table(
     columns: 5,
     [*Resolution*], [*Frame Rate*], [*Macroblock Count*], [*Clock Frequency*], [*Bandwidth*],
-    [1920x1080], [30 Hz], [8100], [68.04 MHz], [2.716 GB/s],
-    [1920x1080], [60 Hz], [8100], [136.08 MHz], [5.432 GB/s],
-    [3840x2160], [30 Hz], [32400], [272.16 MHz], [10.863 GB/s],
-    [3840x2160], [60 Hz], [32400], [544.32 MHz], [21.726 GB/s]
+    [1920x1080], [30 Hz], [8100], [151.6 MHz], [1.541 GB/s],
+    [1920x1080], [60 Hz], [8100], [303.3 MHz], [3.081 GB/s],
+    [3840x2160], [30 Hz], [32400], [606.5 MHz], [6.162 GB/s],
+    [3840x2160], [60 Hz], [32400], [1213.1 MHz], [12.325 GB/s]
   ),
   caption: [Performance of the design at different resolutions and frame rates.]
 )
@@ -237,29 +245,30 @@
 
 == Evaluation: Reference Comparison
 
-- Designs are synthesized at 282 MHz for with the reference.
-- SRAM density is estimated at $0.25 mu"m"^2$ per bit.
+- Clock frequency is chosen to match the resolution and frame rate.
+- SRAM density is estimated at approximately $0.25 mu"m"^2$ per bit.
 
 // NOTE: NAND2 is 0.207360um^2
 
 #figure(
   table(
-    columns: 5,
-    [*Metric*], [*Unit*], [*Original*], [*Modified*], [*Reference*], 
-    [Process], [], [TSMC16], [TSMC16], [TSMC32],
-    [Gate Count], [k], [282], [282], [2878],
-    [Clock Frequency], [MHz], [282], [282], [282],
-    [Total Logic Area], [$mu"m"^2$], [99473], [53470], [],
-    [Total SRAM Area], [$mu"m"^2$], [20250], [31850], [],
-    [Total Cell Area], [$mu"m"^2$], [119723], [85320], []
+    columns: 6,
+    [*Metric*], [*Unit*], [*Design A*], [*Design B*], [*Design C*], [*Reference*], 
+    [Process], [], [TSMC16], [TSMC16], [TSMC16], [TSMC32],
+    [Gate Count], [k], [], [], [212], [2878],
+    [Clock Frequency], [MHz], [272], [272], [607], [282],
+    [Total Logic Area], [$mu"m"^2$], [99473], [53470], [34538], [],
+    [Total SRAM Area], [$mu"m"^2$], [], [], [9496], [],
+    [Total Cell Area], [$mu"m"^2$], [], [], [44034], []
   ),
-  caption: [Comparison between my designs and the reference at 282 MHz (3840x2160).]
+  caption: [Comparison between my designs and the reference (3840x2160\@30fps).]
 )
 
 == Status
 
 - Logic design and verification is complete
-- Optimization and design space exploration is complete
-- DFT insertion has been performed yielding 99.3% coverage
+- DFT insertion has been performed yielding 99.99% test coverage
+- Power optimization and clock gating has been completed yielding 72.6763 mW dynamic power
+  and 83.5706 uW leakage.
 - The design still has to be put through place and route
 

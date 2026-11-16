@@ -38,7 +38,7 @@ module fs_computer (
     logic [3:0][me_pkg::PEL_W-1:0] cb_q[4][4], cb_d[4][4];
     logic [me_pkg::RB_ROW_IDX_W-1:0] rb_row_idx_q, rb_row_idx_d;
     logic [1:0] subcycle_idx_q, subcycle_idx_d;
-    logic stall_q[16], stall_d[16];
+    logic stall_q, stall_d; // Note: use synthesize_mul
 
     // Array SAD outputs
     logic [me_pkg::SAD_4X4_W-1:0] pe_array_sad[4][me_pkg::WINDOW_SIZE];
@@ -57,7 +57,7 @@ module fs_computer (
         for (i = 0; i < WINDOW_SIZE; i++) begin : g_ul
             fs_pe u_pe (
                 .clk   (clk),
-                .stall (stall_q[0 + i/8]),
+                .stall (stall_q),
                 .clear (subcycle_idx_q == 2'd3),
                 .rb    (rb_q[4][i +: 4]),
                 .cb    (cb_q[0][0]),
@@ -69,7 +69,7 @@ module fs_computer (
         for (i = 0; i < WINDOW_SIZE; i++) begin : g_ur
             fs_pe u_pe (
                 .clk   (clk),
-                .stall (stall_q[4 + i/8]),
+                .stall (stall_q),
                 .clear (subcycle_idx_q == 2'd3),
                 .rb    (rb_q[4][(i + 4) +: 4]),
                 .cb    (cb_q[1][0]),
@@ -81,7 +81,7 @@ module fs_computer (
         for (i = 0; i < WINDOW_SIZE; i++) begin : g_ll
             fs_pe u_pe (
                 .clk   (clk),
-                .stall (stall_q[8 + i/8]),
+                .stall (stall_q),
                 .clear (subcycle_idx_q == 2'd3),
                 .rb    (rb_q[0][i +: 4]),
                 .cb    (cb_q[2][0]),
@@ -93,7 +93,7 @@ module fs_computer (
         for (i = 0; i < WINDOW_SIZE; i++) begin : g_lr
             fs_pe u_pe (
                 .clk   (clk),
-                .stall (stall_q[12 + i/8]),
+                .stall (stall_q),
                 .clear (subcycle_idx_q == 2'd3),
                 .rb    (rb_q[0][(i + 4) +: 4]),
                 .cb    (cb_q[3][0]),
@@ -118,7 +118,7 @@ module fs_computer (
         subcycle_idx_d = subcycle_idx;
 
         // Assign array control signal registers, these do not need to stall.
-        for (int i = 0; i < 16; i++) stall_d[i] = stall;
+        stall_d = stall;
     end
 
     always_ff @(posedge clk) begin
@@ -127,7 +127,7 @@ module fs_computer (
             cb_q           <= '{default: '0};
             rb_row_idx_q   <= '0;
             subcycle_idx_q <= '0;
-            stall_q        <= '{default: '0};
+            stall_q        <= '0;
         end else begin
             if (!stall) begin
                 rb_q           <= rb_d;
@@ -142,7 +142,7 @@ module fs_computer (
 
 	always_comb begin
         // Compute output SAD valid signal (valid when rows 0..7 are accumulated)
-        sad_valid_d = (!stall_q[0]) && (rb_row_idx_q >= 7) && (subcycle_idx_q == 2'd1);
+        sad_valid_d = (!stall_q) && (rb_row_idx_q >= 7) && (subcycle_idx_q == 2'd1);
 
         // Compute output SADs and SW idx (both held for 4 cycles until next sad_valid_d)
         if (sad_valid_d) begin

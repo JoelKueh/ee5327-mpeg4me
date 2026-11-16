@@ -15,7 +15,7 @@ module fs_pe import me_pkg::*; (
 );
 
     logic [SAD_4X4_W-1:0] acc_q[3], acc_d[3];
-    logic [SAD_4X4_W-1:0] row_sad;
+    logic [SAD_4X1_W-1:0] row_sad;
     logic [SAD_4X4_W-1:0] prev_sad;
 
     always_comb begin
