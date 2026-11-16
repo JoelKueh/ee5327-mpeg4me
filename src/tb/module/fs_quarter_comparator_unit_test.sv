@@ -233,10 +233,7 @@ module fs_quarter_comparator_unit_test;
 
     `SVTEST(typical_back_to_back)
         sad_grid_t grid[4];
-
-        for (int w = 0; w < 4; w++) begin
-            std::randomize(grid[w]);
-        end
+        std::randomize(grid);
 
         // Stream 4 full 39-row windows back-to-back (each has the 7-row fringe gap)
         fork
@@ -257,10 +254,7 @@ module fs_quarter_comparator_unit_test;
 
     `SVTEST(typical_stall)
         sad_grid_t grid[4];
-
-        for (int w = 0; w < 4; w++) begin
-            std::randomize(grid[w]);
-        end
+        std::randomize(grid);
 
         // Stream 4 full 39-row windows with stalls
         fork

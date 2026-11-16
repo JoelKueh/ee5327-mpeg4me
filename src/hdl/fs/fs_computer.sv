@@ -140,15 +140,14 @@ module fs_computer (
 
     end
 
-    always_comb begin
+	always_comb begin
         // Compute output SAD valid signal (valid when rows 0..7 are accumulated)
         sad_valid_d = (!stall_q[0]) && (rb_row_idx_q >= 7) && (subcycle_idx_q == 2'd1);
 
-        // Compute output SW idx (0..31 for rb_row_idx_q = 7..38) (invariant 2)
-        sad_sw_idx_d = SW_IDX_W'(rb_row_idx_q - 7);
-
-        // Compute output SADs
+        // Compute output SADs and SW idx (both held for 4 cycles until next sad_valid_d)
         if (sad_valid_d) begin
+            sad_sw_idx_d = SW_IDX_W'(rb_row_idx_q - 7);
+
             for (int i = 0; i < WINDOW_SIZE; i++) begin
                 sad_4x4_d[0][i] = pe_array_sad[0][i];
                 sad_4x4_d[1][i] = pe_array_sad[1][i];
@@ -164,10 +163,11 @@ module fs_computer (
                 sad_8x8_d[i]    = sad_8x4_d[0][i] + sad_8x4_d[1][i];
             end
         end else begin
-            sad_4x4_d = sad_4x4_q;
-            sad_4x8_d = sad_4x8_q;
-            sad_8x4_d = sad_8x4_q;
-            sad_8x8_d = sad_8x8_q;
+            sad_sw_idx_d = sad_sw_idx_q;
+            sad_4x4_d    = sad_4x4_q;
+            sad_4x8_d    = sad_4x8_q;
+            sad_8x4_d    = sad_8x4_q;
+            sad_8x8_d    = sad_8x8_q;
         end
     end
 
@@ -182,6 +182,7 @@ module fs_computer (
             sad_8x8_q     <= '{default: '0};
         end else begin
             sad_valid_q  <= sad_valid_d;
+
             sad_sw_idx_q <= sad_sw_idx_d;
             sad_4x4_q    <= sad_4x4_d;
             sad_4x8_q    <= sad_4x8_d;
