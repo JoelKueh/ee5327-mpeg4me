@@ -1,8 +1,7 @@
 // sram_wrapper.sv
 //
-// Generic wrapper an SRAM.
+// Generic wrapper around an SRAM.
 //
-// sram_wrapper.sv
 module sram_wrapper #(
     parameter int ADDR_W,
     parameter int DATA_W

@@ -1,29 +1,33 @@
 `celldefine
-module sram_32x384 (
+module sram_128x96 (
     input         CLK,
     input         WEN,
     input         REN,
     input         DFT_BYPASS,
-    input  [4:0]  WADDR,
-    input  [4:0]  RADDR,
-    input  [383:0] WDATA,
-    output [383:0] RDATA
+    input  [6:0]  WADDR,
+    input  [6:0]  RADDR,
+    input  [95:0] WDATA,
+    output [95:0] RDATA
 );
-    wire x0, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12;
+    wire x0, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13, x14, x15, x16;
 
     xor g0  (x0,  WDATA[0],  RADDR[0]);
     xor g1  (x1,  WDATA[1],  RADDR[1]);
     xor g2  (x2,  WDATA[2],  RADDR[2]);
     xor g3  (x3,  WDATA[3],  RADDR[3]);
     xor g4  (x4,  WDATA[4],  RADDR[4]);
-    xor g5  (x5,  WDATA[5],  WADDR[0]);
-    xor g6  (x6,  WDATA[6],  WADDR[1]);
-    xor g7  (x7,  WDATA[7],  WADDR[2]);
-    xor g8  (x8,  WDATA[8],  WADDR[3]);
-    xor g9  (x9,  WDATA[9],  WADDR[4]);
-    xor g10 (x10, WDATA[10], REN);
-    xor g11 (x11, WDATA[11], WEN);
-    xor g12 (x12, WDATA[12], CLK);
+    xor g5  (x5,  WDATA[5],  RADDR[5]);
+    xor g6  (x6,  WDATA[6],  RADDR[6]);
+    xor g7  (x7,  WDATA[7],  WADDR[0]);
+    xor g8  (x8,  WDATA[8],  WADDR[1]);
+    xor g9  (x9,  WDATA[9],  WADDR[2]);
+    xor g10 (x10, WDATA[10], WADDR[3]);
+    xor g11 (x11, WDATA[11], WADDR[4]);
+    xor g12 (x12, WDATA[12], WADDR[5]);
+    xor g13 (x13, WDATA[13], WADDR[6]);
+    xor g14 (x14, WDATA[14], REN);
+    xor g15 (x15, WDATA[15], WEN);
+    xor g16 (x16, WDATA[16], CLK);
 
     and a0  (RDATA[0],  x0,  DFT_BYPASS);
     and a1  (RDATA[1],  x1,  DFT_BYPASS);
@@ -38,37 +42,45 @@ module sram_32x384 (
     and a10 (RDATA[10], x10, DFT_BYPASS);
     and a11 (RDATA[11], x11, DFT_BYPASS);
     and a12 (RDATA[12], x12, DFT_BYPASS);
+    and a13 (RDATA[13], x13, DFT_BYPASS);
+    and a14 (RDATA[14], x14, DFT_BYPASS);
+    and a15 (RDATA[15], x15, DFT_BYPASS);
+    and a16 (RDATA[16], x16, DFT_BYPASS);
 
-    assign RDATA[383:13] = WDATA[383:13];
+    assign RDATA[95:17] = WDATA[95:17];
 endmodule
 `endcelldefine
 
 `celldefine
-module sram_32x416 (
-    input         CLK,
-    input         WEN,
-    input         REN,
-    input         DFT_BYPASS,
-    input  [4:0]  WADDR,
-    input  [4:0]  RADDR,
-    input  [415:0] WDATA,
-    output [415:0] RDATA
+module sram_128x104 (
+    input          CLK,
+    input          WEN,
+    input          REN,
+    input          DFT_BYPASS,
+    input  [6:0]   WADDR,
+    input  [6:0]   RADDR,
+    input  [103:0] WDATA,
+    output [103:0] RDATA
 );
-    wire x0, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12;
+    wire x0, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13, x14, x15, x16;
 
     xor g0  (x0,  WDATA[0],  RADDR[0]);
     xor g1  (x1,  WDATA[1],  RADDR[1]);
     xor g2  (x2,  WDATA[2],  RADDR[2]);
     xor g3  (x3,  WDATA[3],  RADDR[3]);
     xor g4  (x4,  WDATA[4],  RADDR[4]);
-    xor g5  (x5,  WDATA[5],  WADDR[0]);
-    xor g6  (x6,  WDATA[6],  WADDR[1]);
-    xor g7  (x7,  WDATA[7],  WADDR[2]);
-    xor g8  (x8,  WDATA[8],  WADDR[3]);
-    xor g9  (x9,  WDATA[9],  WADDR[4]);
-    xor g10 (x10, WDATA[10], REN);
-    xor g11 (x11, WDATA[11], WEN);
-    xor g12 (x12, WDATA[12], CLK);
+    xor g5  (x5,  WDATA[5],  RADDR[5]);
+    xor g6  (x6,  WDATA[6],  RADDR[6]);
+    xor g7  (x7,  WDATA[7],  WADDR[0]);
+    xor g8  (x8,  WDATA[8],  WADDR[1]);
+    xor g9  (x9,  WDATA[9],  WADDR[2]);
+    xor g10 (x10, WDATA[10], WADDR[3]);
+    xor g11 (x11, WDATA[11], WADDR[4]);
+    xor g12 (x12, WDATA[12], WADDR[5]);
+    xor g13 (x13, WDATA[13], WADDR[6]);
+    xor g14 (x14, WDATA[14], REN);
+    xor g15 (x15, WDATA[15], WEN);
+    xor g16 (x16, WDATA[16], CLK);
 
     and a0  (RDATA[0],  x0,  DFT_BYPASS);
     and a1  (RDATA[1],  x1,  DFT_BYPASS);
@@ -83,37 +95,45 @@ module sram_32x416 (
     and a10 (RDATA[10], x10, DFT_BYPASS);
     and a11 (RDATA[11], x11, DFT_BYPASS);
     and a12 (RDATA[12], x12, DFT_BYPASS);
+    and a13 (RDATA[13], x13, DFT_BYPASS);
+    and a14 (RDATA[14], x14, DFT_BYPASS);
+    and a15 (RDATA[15], x15, DFT_BYPASS);
+    and a16 (RDATA[16], x16, DFT_BYPASS);
 
-    assign RDATA[415:13] = WDATA[415:13];
+    assign RDATA[103:17] = WDATA[103:17];
 endmodule
 `endcelldefine
 
 `celldefine
-module sram_32x448 (
-    input         CLK,
-    input         WEN,
-    input         REN,
-    input         DFT_BYPASS,
-    input  [4:0]  WADDR,
-    input  [4:0]  RADDR,
-    input  [447:0] WDATA,
-    output [447:0] RDATA
+module sram_128x112 (
+    input          CLK,
+    input          WEN,
+    input          REN,
+    input          DFT_BYPASS,
+    input  [6:0]   WADDR,
+    input  [6:0]   RADDR,
+    input  [111:0] WDATA,
+    output [111:0] RDATA
 );
-    wire x0, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12;
+    wire x0, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13, x14, x15, x16;
 
     xor g0  (x0,  WDATA[0],  RADDR[0]);
     xor g1  (x1,  WDATA[1],  RADDR[1]);
     xor g2  (x2,  WDATA[2],  RADDR[2]);
     xor g3  (x3,  WDATA[3],  RADDR[3]);
     xor g4  (x4,  WDATA[4],  RADDR[4]);
-    xor g5  (x5,  WDATA[5],  WADDR[0]);
-    xor g6  (x6,  WDATA[6],  WADDR[1]);
-    xor g7  (x7,  WDATA[7],  WADDR[2]);
-    xor g8  (x8,  WDATA[8],  WADDR[3]);
-    xor g9  (x9,  WDATA[9],  WADDR[4]);
-    xor g10 (x10, WDATA[10], REN);
-    xor g11 (x11, WDATA[11], WEN);
-    xor g12 (x12, WDATA[12], CLK);
+    xor g5  (x5,  WDATA[5],  RADDR[5]);
+    xor g6  (x6,  WDATA[6],  RADDR[6]);
+    xor g7  (x7,  WDATA[7],  WADDR[0]);
+    xor g8  (x8,  WDATA[8],  WADDR[1]);
+    xor g9  (x9,  WDATA[9],  WADDR[2]);
+    xor g10 (x10, WDATA[10], WADDR[3]);
+    xor g11 (x11, WDATA[11], WADDR[4]);
+    xor g12 (x12, WDATA[12], WADDR[5]);
+    xor g13 (x13, WDATA[13], WADDR[6]);
+    xor g14 (x14, WDATA[14], REN);
+    xor g15 (x15, WDATA[15], WEN);
+    xor g16 (x16, WDATA[16], CLK);
 
     and a0  (RDATA[0],  x0,  DFT_BYPASS);
     and a1  (RDATA[1],  x1,  DFT_BYPASS);
@@ -128,37 +148,45 @@ module sram_32x448 (
     and a10 (RDATA[10], x10, DFT_BYPASS);
     and a11 (RDATA[11], x11, DFT_BYPASS);
     and a12 (RDATA[12], x12, DFT_BYPASS);
+    and a13 (RDATA[13], x13, DFT_BYPASS);
+    and a14 (RDATA[14], x14, DFT_BYPASS);
+    and a15 (RDATA[15], x15, DFT_BYPASS);
+    and a16 (RDATA[16], x16, DFT_BYPASS);
 
-    assign RDATA[447:13] = WDATA[447:13];
+    assign RDATA[111:17] = WDATA[111:17];
 endmodule
 `endcelldefine
 
 `celldefine
-module sram_32x480 (
-    input         CLK,
-    input         WEN,
-    input         REN,
-    input         DFT_BYPASS,
-    input  [4:0]  WADDR,
-    input  [4:0]  RADDR,
-    input  [479:0] WDATA,
-    output [479:0] RDATA
+module sram_128x120 (
+    input          CLK,
+    input          WEN,
+    input          REN,
+    input          DFT_BYPASS,
+    input  [6:0]   WADDR,
+    input  [6:0]   RADDR,
+    input  [119:0] WDATA,
+    output [119:0] RDATA
 );
-    wire x0, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12;
+    wire x0, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13, x14, x15, x16;
 
     xor g0  (x0,  WDATA[0],  RADDR[0]);
     xor g1  (x1,  WDATA[1],  RADDR[1]);
     xor g2  (x2,  WDATA[2],  RADDR[2]);
     xor g3  (x3,  WDATA[3],  RADDR[3]);
     xor g4  (x4,  WDATA[4],  RADDR[4]);
-    xor g5  (x5,  WDATA[5],  WADDR[0]);
-    xor g6  (x6,  WDATA[6],  WADDR[1]);
-    xor g7  (x7,  WDATA[7],  WADDR[2]);
-    xor g8  (x8,  WDATA[8],  WADDR[3]);
-    xor g9  (x9,  WDATA[9],  WADDR[4]);
-    xor g10 (x10, WDATA[10], REN);
-    xor g11 (x11, WDATA[11], WEN);
-    xor g12 (x12, WDATA[12], CLK);
+    xor g5  (x5,  WDATA[5],  RADDR[5]);
+    xor g6  (x6,  WDATA[6],  RADDR[6]);
+    xor g7  (x7,  WDATA[7],  WADDR[0]);
+    xor g8  (x8,  WDATA[8],  WADDR[1]);
+    xor g9  (x9,  WDATA[9],  WADDR[2]);
+    xor g10 (x10, WDATA[10], WADDR[3]);
+    xor g11 (x11, WDATA[11], WADDR[4]);
+    xor g12 (x12, WDATA[12], WADDR[5]);
+    xor g13 (x13, WDATA[13], WADDR[6]);
+    xor g14 (x14, WDATA[14], REN);
+    xor g15 (x15, WDATA[15], WEN);
+    xor g16 (x16, WDATA[16], CLK);
 
     and a0  (RDATA[0],  x0,  DFT_BYPASS);
     and a1  (RDATA[1],  x1,  DFT_BYPASS);
@@ -173,7 +201,11 @@ module sram_32x480 (
     and a10 (RDATA[10], x10, DFT_BYPASS);
     and a11 (RDATA[11], x11, DFT_BYPASS);
     and a12 (RDATA[12], x12, DFT_BYPASS);
+    and a13 (RDATA[13], x13, DFT_BYPASS);
+    and a14 (RDATA[14], x14, DFT_BYPASS);
+    and a15 (RDATA[15], x15, DFT_BYPASS);
+    and a16 (RDATA[16], x16, DFT_BYPASS);
 
-    assign RDATA[479:13] = WDATA[479:13];
+    assign RDATA[119:17] = WDATA[119:17];
 endmodule
 `endcelldefine

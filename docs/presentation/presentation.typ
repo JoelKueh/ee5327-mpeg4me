@@ -237,6 +237,11 @@
 
 == Evaluation: Reference Comparison
 
+- Designs are synthesized at 282 MHz for with the reference.
+- SRAM density is estimated at $0.25 mu"m"^2$ per bit.
+
+// NOTE: NAND2 is 0.207360um^2
+
 #figure(
   table(
     columns: 5,
