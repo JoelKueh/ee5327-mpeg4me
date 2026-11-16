@@ -26,7 +26,7 @@ module fs_pe import me_pkg::*; (
         end
 
         // Update accumulator based on the sum of the previous and row SAD
-        for (int i = 1; i < 4; i++) acc_d[i] = acc_q[i-1];
+        for (int i = 1; i < 3; i++) acc_d[i] = acc_q[i-1];
         prev_sad = clear ? '0 : acc_q[2];
         acc_d[0] = prev_sad + row_sad;
     end

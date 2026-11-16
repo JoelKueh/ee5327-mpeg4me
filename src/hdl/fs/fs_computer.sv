@@ -8,8 +8,8 @@
 // driven to the PE arrays.
 //
 // Invariant 2:
-// When rb_row_idx_q>=3 and subcycle_idx_q==2 is driven to the PE arrays,
-// the output corresponding to rb_row_idx_q==0 is valid.
+// When rb_row_idx_q>=7 and subcycle_idx_q==2 is driven to the PE arrays,
+// the 4x output corresponding to sad_sw_idx==0 is valid.
 //
 
 module fs_computer (
@@ -20,15 +20,17 @@ module fs_computer (
     input logic [3:0][me_pkg::PEL_W-1:0] cb[4],                   // Current block input (4, 4 pel rows of CB)
     input logic [me_pkg::WINDOW_SIZE+6:0][me_pkg::PEL_W-1:0] rb,  // Reference block input stream (39 pel row of RB)
 
-    input logic [me_pkg::RB_ROW_IDX_W-1:0] rb_row_idx,  // Reference block search window offset
-    input logic [1:0] subcycle_idx,                     // Index into the current subcycle
+    input logic [me_pkg::RB_ROW_IDX_W-1:0] rb_row_idx,  // Reference block search window offset (0..38)
+    input logic [1:0] subcycle_idx,                     // Index into the current subcycle (0..3)
 
-    output logic sad_valid,                                               // Output SAD valid
-    output logic [me_pkg::SW_IDX_W-1:0] sad_sw_idx,                       // SAD search window offset
-    output logic [me_pkg::SAD_4X4_W-1:0] sad_4x4[4][me_pkg::WINDOW_SIZE], // Buffered output 4x4 row results
-    output logic [me_pkg::SAD_8X4_W-1:0] sad_4x8[2][me_pkg::WINDOW_SIZE], // Buffered output 4x8 row results
-    output logic [me_pkg::SAD_8X4_W-1:0] sad_8x4[2][me_pkg::WINDOW_SIZE], // Buffered output 8x4 row results
-    output logic [me_pkg::SAD_8X8_W-1:0] sad_8x8[me_pkg::WINDOW_SIZE]     // Buffered output 8x8 row results
+    output logic sad_4x_valid,                                            // Output 4x SAD valid
+    output logic sad_8x_valid,                                            // Output 8x SAD valid
+    output logic [me_pkg::SW_IDX_W-1:0] sad_4x_sw_idx,                    // 4x SAD search window offset (0..31)
+    output logic [me_pkg::SW_IDX_W-1:0] sad_8x_sw_idx,                    // 8x SAD search window offset (0..31)
+    output logic [me_pkg::SAD_4X4_W-1:0] sad_4x4[4][me_pkg::WINDOW_SIZE], // Output 4x4 row results
+    output logic [me_pkg::SAD_8X4_W-1:0] sad_4x8[2][me_pkg::WINDOW_SIZE], // Output 4x8 row results
+    output logic [me_pkg::SAD_8X4_W-1:0] sad_8x4[2][me_pkg::WINDOW_SIZE], // Output 8x4 row results
+    output logic [me_pkg::SAD_8X8_W-1:0] sad_8x8[me_pkg::WINDOW_SIZE]     // Output 8x8 row results
 );
 
     import me_pkg::*;
@@ -36,65 +38,64 @@ module fs_computer (
     // Frame pipeline buffers and array stall signal
     logic [WINDOW_SIZE+6:0][PEL_W-1:0] rb_q[5], rb_d[5];
     logic [3:0][me_pkg::PEL_W-1:0] cb_q[4][4], cb_d[4][4];
-    logic [me_pkg::RB_ROW_IDX_W-1:0] rb_row_idx_q[5], rb_row_idx_d[5];
+    logic [me_pkg::RB_ROW_IDX_W-1:0] rb_row_idx_q, rb_row_idx_d;
     logic [1:0] subcycle_idx_q, subcycle_idx_d;
     logic stall_q[16], stall_d[16];
 
     // Output SAD buffers and valid signal
-    logic sad_valid_q, sad_valid_d;
-    logic [me_pkg::SW_IDX_W-1:0]  sad_sw_idx_q, sad_sw_idx_d;
-    logic [me_pkg::SAD_4X4_W-1:0] sad_4x4_q[4][me_pkg::WINDOW_SIZE], sad_4x4_d[4][me_pkg::WINDOW_SIZE];
+    logic sad_8x_valid_q, sad_8x_valid_d;
+    logic [me_pkg::SW_IDX_W-1:0]  sad_8x_sw_idx_q, sad_8x_sw_idx_d;
     logic [me_pkg::SAD_8X4_W-1:0] sad_4x8_q[2][me_pkg::WINDOW_SIZE], sad_4x8_d[2][me_pkg::WINDOW_SIZE];
     logic [me_pkg::SAD_8X4_W-1:0] sad_8x4_q[2][me_pkg::WINDOW_SIZE], sad_8x4_d[2][me_pkg::WINDOW_SIZE];
     logic [me_pkg::SAD_8X8_W-1:0] sad_8x8_q[me_pkg::WINDOW_SIZE],    sad_8x8_d[me_pkg::WINDOW_SIZE];
 
     genvar i;
     generate
-        // Upper-Left (ul) - feeds RAM realignment path
+        // Upper-Left (ul) - Uses 4-row delayed reference rb_q[4]
         for (i = 0; i < WINDOW_SIZE; i++) begin : g_ul
             fs_pe u_pe (
                 .clk   (clk),
                 .stall (stall_q[0 + i/8]),
                 .clear (subcycle_idx_q == 2'd3),
-                .rb    (rb_q[0][i +: 4]),
+                .rb    (rb_q[4][i +: 4]),
                 .cb    (cb_q[0][0]),
-                .sad   (sad_4x4_d[0][i])
+                .sad   (sad_4x4[0][i])
             );
         end
 
-        // Upper-Right (ur) - feeds RAM realignment path
+        // Upper-Right (ur) - Uses 4-row delayed reference rb_q[4]
         for (i = 0; i < WINDOW_SIZE; i++) begin : g_ur
             fs_pe u_pe (
                 .clk   (clk),
                 .stall (stall_q[4 + i/8]),
                 .clear (subcycle_idx_q == 2'd3),
-                .rb    (rb_q[0][(i + 4) +: 4]),
+                .rb    (rb_q[4][(i + 4) +: 4]),
                 .cb    (cb_q[1][0]),
-                .sad   (sad_4x4_d[1][i])
+                .sad   (sad_4x4[1][i])
             );
         end
 
-        // Lower-Left (ll) - computes simultaneously with upper blocks
+        // Lower-Left (ll) - Computes on rb_q[0]
         for (i = 0; i < WINDOW_SIZE; i++) begin : g_ll
             fs_pe u_pe (
                 .clk   (clk),
                 .stall (stall_q[8 + i/8]),
                 .clear (subcycle_idx_q == 2'd3),
-                .rb    (rb_q[4][i +: 4]),
+                .rb    (rb_q[0][i +: 4]),
                 .cb    (cb_q[2][0]),
-                .sad   (sad_4x4_d[2][i])
+                .sad   (sad_4x4[2][i])
             );
         end
 
-        // Lower-Right (lr) - computes simultaneously with upper blocks
+        // Lower-Right (lr) - Computes on rb_q[0]
         for (i = 0; i < WINDOW_SIZE; i++) begin : g_lr
             fs_pe u_pe (
                 .clk   (clk),
                 .stall (stall_q[12 + i/8]),
                 .clear (subcycle_idx_q == 2'd3),
-                .rb    (rb_q[4][(i + 4) +: 4]),
+                .rb    (rb_q[0][(i + 4) +: 4]),
                 .cb    (cb_q[3][0]),
-                .sad   (sad_4x4_d[3][i])
+                .sad   (sad_4x4[3][i])
             );
         end
     endgenerate
@@ -104,7 +105,6 @@ module fs_computer (
         for (int i = 1; i < 5; i++) rb_d[i] = subcycle_idx_q == 2'd3 ? rb_q[i-1] : rb_q[i];
         rb_d[0] = rb;
 
-
         // Advance cb circular shift register
         for (int i = 0; i < 4; i++) begin
             for (int j = 1; j < 4; j++) cb_d[i][j] = cb_q[i][j-1];
@@ -112,8 +112,7 @@ module fs_computer (
         end
 
         // Assign indicies: maintain invariant 1
-        for (int i = 1; i < 5; i++) rb_row_idx_d[i] = subcycle_idx_q == 2'd3 ? rb_row_idx_q[i-1] : rb_row_idx_q[i];
-        rb_row_idx_d[0] = rb_row_idx;
+        rb_row_idx_d   = rb_row_idx;
         subcycle_idx_d = subcycle_idx;
 
         // Assign array control signal registers, these do not need to stall.
@@ -122,31 +121,39 @@ module fs_computer (
 
     always_ff @(posedge clk) begin
         if (clear) begin
-            rb_row_idx_q <= '{default: '0};
-        end else if (!stall) begin
-            rb_q <= rb_d;
-            cb_q <= cb_d;
-            rb_row_idx_q <= rb_row_idx_d;
-            subcycle_idx_q <= subcycle_idx_d;
+            rb_q           <= '{default: '0};
+            cb_q           <= '{default: '0};
+            rb_row_idx_q   <= '0;
+            subcycle_idx_q <= '0;
+            stall_q        <= '{default: '0};
+        end else begin
+            if (!stall) begin
+                rb_q           <= rb_d;
+                cb_q           <= cb_d;
+                rb_row_idx_q   <= rb_row_idx_d;
+                subcycle_idx_q <= subcycle_idx_d;
+            end
+            stall_q <= stall_d;
         end
 
-        stall_q <= stall_d;
     end
 
     always_comb begin
-        // Compute output SAD valid signal
-        sad_valid_d = (!stall) && (rb_row_idx_q[4] >= 3) && (subcycle_idx_q == 2'd1);
+        // Compute output SAD valid signal (valid when rows 0..7 are accumulated)
+        sad_4x_valid   = (!stall_q[0]) && (rb_row_idx_q >= 7) && (subcycle_idx_q == 2'd1);
+        sad_8x_valid_d = sad_4x_valid;
 
-        // Compute output SW idx: trust invariant 2
-        sad_sw_idx_d = rb_row_idx_q[4] - 3;
+        // Compute output SW idx (0..31 for rb_row_idx_q = 7..38) (invariant 2)
+        sad_4x_sw_idx   = SW_IDX_W'(rb_row_idx_q - 7);
+        sad_8x_sw_idx_d = sad_4x_sw_idx;
 
         // Compute output SADs
         for (int i = 0; i < WINDOW_SIZE; i++) begin
-            sad_4x8_d[0][i] = sad_4x4_q[0][i] + sad_4x4_q[1][i];
-            sad_4x8_d[1][i] = sad_4x4_q[2][i] + sad_4x4_q[3][i];
+            sad_4x8_d[0][i] = sad_4x4[0][i] + sad_4x4[1][i];
+            sad_4x8_d[1][i] = sad_4x4[2][i] + sad_4x4[3][i];
 
-            sad_8x4_d[0][i] = sad_4x4_q[0][i] + sad_4x4_q[2][i];
-            sad_8x4_d[1][i] = sad_4x4_q[1][i] + sad_4x4_q[3][i];
+            sad_8x4_d[0][i] = sad_4x4[0][i] + sad_4x4[2][i];
+            sad_8x4_d[1][i] = sad_4x4[1][i] + sad_4x4[3][i];
 
             sad_8x8_d[i]    = sad_8x4_d[0][i] + sad_8x4_d[1][i];
         end
@@ -154,20 +161,26 @@ module fs_computer (
 
     // Buffer output SADs
     always_ff @(posedge clk) begin
-        sad_valid_q  <= sad_valid_d;
-        sad_sw_idx_q <= sad_sw_idx_d;
-        sad_4x4_q    <= sad_4x4_d;
-        sad_4x8_q    <= sad_4x8_d;
-        sad_8x4_q    <= sad_8x4_d;
-        sad_8x8_q    <= sad_8x8_d;
+        if (clear) begin
+            sad_8x_valid_q  <= 1'b0;
+            sad_8x_sw_idx_q <= '0;
+            sad_4x8_q       <= '{default: '0};
+            sad_8x4_q       <= '{default: '0};
+            sad_8x8_q       <= '{default: '0};
+        end else begin
+            sad_8x_valid_q  <= sad_8x_valid_d;
+            sad_8x_sw_idx_q <= sad_8x_sw_idx_d;
+            sad_4x8_q       <= sad_4x8_d;
+            sad_8x4_q       <= sad_8x4_d;
+            sad_8x8_q       <= sad_8x8_d;
+        end
     end
 
     // Assign output SADs
-    assign sad_valid  = sad_valid_q;
-    assign sad_sw_idx = sad_sw_idx_q;
-    assign sad_4x4    = sad_4x4_q;
-    assign sad_4x8    = sad_4x8_q;
-    assign sad_8x4    = sad_8x4_q;
-    assign sad_8x8    = sad_8x8_q;
+    assign sad_8x_valid  = sad_8x_valid_q;
+    assign sad_8x_sw_idx = sad_8x_sw_idx_q;
+    assign sad_4x8       = sad_4x8_q;
+    assign sad_8x4       = sad_8x4_q;
+    assign sad_8x8       = sad_8x8_q;
 
 endmodule
