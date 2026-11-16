@@ -33,6 +33,8 @@ module fs_pe_unit_test;
     fs_pe dut (.*);
 
     initial begin
+        $fsdbDumpfile("dump.fsdb");
+        $fsdbDumpvars(0, fs_pe_unit_test, "+mda", "+all");
         clk = '0;
         forever #5 clk = ~clk;
     end

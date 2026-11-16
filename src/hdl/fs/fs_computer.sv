@@ -14,6 +14,7 @@
 
 module fs_computer (
     input logic clk,   // The primary clock
+    input logic clear, // Synchronous clear signal
     input logic stall, // Stall signal
 
     input logic [3:0][me_pkg::PEL_W-1:0] cb[4],                   // Current block input (4, 4 pel rows of CB)
@@ -35,7 +36,7 @@ module fs_computer (
     // Frame pipeline buffers and array stall signal
     logic [WINDOW_SIZE+6:0][PEL_W-1:0] rb_q[5], rb_d[5];
     logic [3:0][me_pkg::PEL_W-1:0] cb_q[4][4], cb_d[4][4];
-    logic [me_pkg::RB_ROW_IDX_W-1:0] rb_row_idx_q, rb_row_idx_d;
+    logic [me_pkg::RB_ROW_IDX_W-1:0] rb_row_idx_q[5], rb_row_idx_d[5];
     logic [1:0] subcycle_idx_q, subcycle_idx_d;
     logic stall_q[16], stall_d[16];
 
@@ -100,8 +101,9 @@ module fs_computer (
 
     always_comb begin
         // Advance rb pipeline delay register
-        for (int i = 1; i < 5; i++) rb_d[i] = rb_q[i-1];
+        for (int i = 1; i < 5; i++) rb_d[i] = subcycle_idx_q == 2'd3 ? rb_q[i-1] : rb_q[i];
         rb_d[0] = rb;
+
 
         // Advance cb circular shift register
         for (int i = 0; i < 4; i++) begin
@@ -110,7 +112,8 @@ module fs_computer (
         end
 
         // Assign indicies: maintain invariant 1
-        rb_row_idx_d = rb_row_idx > 3 ? rb_row_idx - 4 : 0;
+        for (int i = 1; i < 5; i++) rb_row_idx_d[i] = subcycle_idx_q == 2'd3 ? rb_row_idx_q[i-1] : rb_row_idx_q[i];
+        rb_row_idx_d[0] = rb_row_idx;
         subcycle_idx_d = subcycle_idx;
 
         // Assign array control signal registers, these do not need to stall.
@@ -118,21 +121,24 @@ module fs_computer (
     end
 
     always_ff @(posedge clk) begin
-        if (!stall) begin
+        if (clear) begin
+            rb_row_idx_q <= '{default: '0};
+        end else if (!stall) begin
             rb_q <= rb_d;
             cb_q <= cb_d;
             rb_row_idx_q <= rb_row_idx_d;
             subcycle_idx_q <= subcycle_idx_d;
         end
+
         stall_q <= stall_d;
     end
 
     always_comb begin
         // Compute output SAD valid signal
-        sad_valid_d = (!stall) && (rb_row_idx_q > 3) && (subcycle_idx_q == 2'd3);
+        sad_valid_d = (!stall) && (rb_row_idx_q[4] >= 3) && (subcycle_idx_q == 2'd1);
 
         // Compute output SW idx: trust invariant 2
-        sad_sw_idx_d = rb_row_idx_q - 3;
+        sad_sw_idx_d = rb_row_idx_q[4] - 3;
 
         // Compute output SADs
         for (int i = 0; i < WINDOW_SIZE; i++) begin

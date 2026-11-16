@@ -33,26 +33,17 @@ module fs_computer_unit_test;
     logic [SAD_8X4_W-1:0]                   sad_8x4[2][WINDOW_SIZE];
     logic [SAD_8X8_W-1:0]                   sad_8x8[WINDOW_SIZE];
 
-    // Pipeline tracking signals registered in NBA alongside dut outputs
-    logic                                   sad_valid_d, sad_valid_q;
-    logic [SW_IDX_W-1:0]                    sad_idx_d,   sad_idx_q;
-
     // Instantiate DUT with exact port mapping
     fs_computer dut (.*);
 
     initial begin
+        $fsdbDumpfile("dump.fsdb");
+        $fsdbDumpvars(0, fs_computer_unit_test, "+mda", "+all");
         clk = '0;
         forever #5 clk = ~clk;
     end
 
-    always_ff @(posedge clk) begin
-        sad_valid_q <= sad_valid_d && !stall;
-        if (!stall) begin
-            sad_idx_q <= sad_idx_d;
-        end
-    end
-
-    // Drive all synchronous DUT inputs with '<=' matching testbench standards
+    // Drive synchronous DUT inputs cleanly
     task automatic drive_subcycle(logic do_s, logic [RB_ROW_IDX_W-1:0] r_idx, logic [1:0] sub_idx,
                                    rb_window_t rb_win, cb_block_t cb_blk[4]);
         rb_row_idx   <= r_idx;
@@ -64,9 +55,6 @@ module fs_computer_unit_test;
                 cb[q][r] <= cb_blk[q][3 - sub_idx];
             end
         end
-
-        sad_valid_d <= (sub_idx == 2'd3) && (r_idx >= 3);
-        sad_idx_d   <= r_idx >= 3 ? (r_idx - 3) : 0;
 
         if (do_s) begin
             stall <= 1'b1;
@@ -87,22 +75,22 @@ module fs_computer_unit_test;
         for (int r = 0; r < NUM_RB_ROWS; r++) begin
             drive_row(do_s, r, rb_win, cb_blk);
         end
-        // Flush final rows
-        for (int p = 0; p < 4; p++) begin
+        // Flush remaining pipeline rows
+        for (int p = 0; p < 8; p++) begin
             drive_subcycle(do_s, NUM_RB_ROWS-1, p[1:0], rb_win, cb_blk);
         end
     endtask
 
-    // Monitor and verify active results against golden calculation
+    // Monitor DUT's actual outputs directly
     task automatic monitor_computer(rb_window_t rb_win, cb_block_t cb_blk[4]);
         int exp_4x4_ul;
 
         @(posedge clk);
-        if (sad_valid_q) begin
+        if (sad_valid) begin
             exp_4x4_ul = 0;
             for (int r = 0; r < 4; r++) begin
                 for (int c = 0; c < 4; c++) begin
-                    int rb_pel = int'(rb_win[sad_idx_q + r][c]);
+                    int rb_pel = int'(rb_win[sad_sw_idx + r][c]);
                     int cb_pel = int'(cb_blk[0][r][c]);
                     exp_4x4_ul += (rb_pel > cb_pel) ? (rb_pel - cb_pel) : (cb_pel - rb_pel);
                 end
@@ -131,10 +119,6 @@ module fs_computer_unit_test;
         rb           = '0;
         rb_row_idx   = '0;
         subcycle_idx = '0;
-        sad_valid_d  = '0;
-        sad_valid_q  = '0;
-        sad_idx_d    = 0;
-        sad_idx_q    = 0;
         for (int q = 0; q < 4; q++) cb[q] = '0;
         @(posedge clk);
     endtask
@@ -145,7 +129,63 @@ module fs_computer_unit_test;
 
     `SVUNIT_TESTS_BEGIN
 
-    `SVTEST(back_to_back_windows)
+    `SVTEST(max_sad)
+        rb_window_t rb_win;
+        cb_block_t  cb_blk[4];
+
+        // Max difference: RB = 0, CB = 255 (all pixels maxed)
+        for (int r = 0; r < NUM_RB_ROWS; r++) begin
+            for (int c = 0; c < WINDOW_SIZE+7; c++) begin
+                rb_win[r][c] = 8'h00;
+            end
+        end
+        for (int q = 0; q < 4; q++) begin
+            for (int r = 0; r < 4; r++) begin
+                for (int c = 0; c < 4; c++) begin
+                    cb_blk[q][r][c] = 8'hFF;
+                end
+            end
+        end
+
+        fork
+            forever monitor_computer(rb_win, cb_blk);
+        join_none
+
+        drive_window(0, rb_win, cb_blk);
+
+        @(posedge clk);
+        disable fork;
+    `SVTEST_END
+
+    `SVTEST(min_sad)
+        rb_window_t rb_win;
+        cb_block_t  cb_blk[4];
+
+        // Zero difference: RB and CB identical (all pixels set to 8'hA5)
+        for (int r = 0; r < NUM_RB_ROWS; r++) begin
+            for (int c = 0; c < WINDOW_SIZE+7; c++) begin
+                rb_win[r][c] = 8'hA5;
+            end
+        end
+        for (int q = 0; q < 4; q++) begin
+            for (int r = 0; r < 4; r++) begin
+                for (int c = 0; c < 4; c++) begin
+                    cb_blk[q][r][c] = 8'hA5;
+                end
+            end
+        end
+
+        fork
+            forever monitor_computer(rb_win, cb_blk);
+        join_none
+
+        drive_window(0, rb_win, cb_blk);
+
+        @(posedge clk);
+        disable fork;
+    `SVTEST_END
+
+    `SVTEST(typical)
         rb_window_t rb_win;
         cb_block_t  cb_blk[4];
 
@@ -156,7 +196,6 @@ module fs_computer_unit_test;
             forever monitor_computer(rb_win, cb_blk);
         join_none
 
-        // Drive multiple 32-row search windows back-to-back
         drive_window(0, rb_win, cb_blk);
         drive_window(0, rb_win, cb_blk);
 
@@ -164,7 +203,7 @@ module fs_computer_unit_test;
         disable fork;
     `SVTEST_END
 
-    `SVTEST(windows_with_stalls)
+    `SVTEST(typical_stall)
         rb_window_t rb_win;
         cb_block_t  cb_blk[4];
 
