@@ -23,10 +23,8 @@ module fs_computer (
     input logic [me_pkg::RB_ROW_IDX_W-1:0] rb_row_idx,  // Reference block search window offset (0..38)
     input logic [1:0] subcycle_idx,                     // Index into the current subcycle (0..3)
 
-    output logic sad_4x_valid,                                            // Output 4x SAD valid
-    output logic sad_8x_valid,                                            // Output 8x SAD valid
-    output logic [me_pkg::SW_IDX_W-1:0] sad_4x_sw_idx,                    // 4x SAD search window offset (0..31)
-    output logic [me_pkg::SW_IDX_W-1:0] sad_8x_sw_idx,                    // 8x SAD search window offset (0..31)
+    output logic sad_valid,                                               // Output SADs valid
+    output logic [me_pkg::SW_IDX_W-1:0] sad_sw_idx,                       // SAD search window offset (0..31)
     output logic [me_pkg::SAD_4X4_W-1:0] sad_4x4[4][me_pkg::WINDOW_SIZE], // Output 4x4 row results
     output logic [me_pkg::SAD_8X4_W-1:0] sad_4x8[2][me_pkg::WINDOW_SIZE], // Output 4x8 row results
     output logic [me_pkg::SAD_8X4_W-1:0] sad_8x4[2][me_pkg::WINDOW_SIZE], // Output 8x4 row results
@@ -42,9 +40,13 @@ module fs_computer (
     logic [1:0] subcycle_idx_q, subcycle_idx_d;
     logic stall_q[16], stall_d[16];
 
+    // Array SAD outputs
+    logic [me_pkg::SAD_4X4_W-1:0] pe_array_sad[4][me_pkg::WINDOW_SIZE];
+
     // Output SAD buffers and valid signal
-    logic sad_8x_valid_q, sad_8x_valid_d;
-    logic [me_pkg::SW_IDX_W-1:0]  sad_8x_sw_idx_q, sad_8x_sw_idx_d;
+    logic sad_valid_q, sad_valid_d;
+    logic [me_pkg::SW_IDX_W-1:0]  sad_sw_idx_q, sad_sw_idx_d;
+    logic [me_pkg::SAD_4X4_W-1:0] sad_4x4_q[4][me_pkg::WINDOW_SIZE], sad_4x4_d[4][me_pkg::WINDOW_SIZE];
     logic [me_pkg::SAD_8X4_W-1:0] sad_4x8_q[2][me_pkg::WINDOW_SIZE], sad_4x8_d[2][me_pkg::WINDOW_SIZE];
     logic [me_pkg::SAD_8X4_W-1:0] sad_8x4_q[2][me_pkg::WINDOW_SIZE], sad_8x4_d[2][me_pkg::WINDOW_SIZE];
     logic [me_pkg::SAD_8X8_W-1:0] sad_8x8_q[me_pkg::WINDOW_SIZE],    sad_8x8_d[me_pkg::WINDOW_SIZE];
@@ -59,7 +61,7 @@ module fs_computer (
                 .clear (subcycle_idx_q == 2'd3),
                 .rb    (rb_q[4][i +: 4]),
                 .cb    (cb_q[0][0]),
-                .sad   (sad_4x4[0][i])
+                .sad   (pe_array_sad[0][i])
             );
         end
 
@@ -71,7 +73,7 @@ module fs_computer (
                 .clear (subcycle_idx_q == 2'd3),
                 .rb    (rb_q[4][(i + 4) +: 4]),
                 .cb    (cb_q[1][0]),
-                .sad   (sad_4x4[1][i])
+                .sad   (pe_array_sad[1][i])
             );
         end
 
@@ -83,7 +85,7 @@ module fs_computer (
                 .clear (subcycle_idx_q == 2'd3),
                 .rb    (rb_q[0][i +: 4]),
                 .cb    (cb_q[2][0]),
-                .sad   (sad_4x4[2][i])
+                .sad   (pe_array_sad[2][i])
             );
         end
 
@@ -95,7 +97,7 @@ module fs_computer (
                 .clear (subcycle_idx_q == 2'd3),
                 .rb    (rb_q[0][(i + 4) +: 4]),
                 .cb    (cb_q[3][0]),
-                .sad   (sad_4x4[3][i])
+                .sad   (pe_array_sad[3][i])
             );
         end
     endgenerate
@@ -140,47 +142,60 @@ module fs_computer (
 
     always_comb begin
         // Compute output SAD valid signal (valid when rows 0..7 are accumulated)
-        sad_4x_valid   = (!stall_q[0]) && (rb_row_idx_q >= 7) && (subcycle_idx_q == 2'd1);
-        sad_8x_valid_d = sad_4x_valid;
+        sad_valid_d = (!stall_q[0]) && (rb_row_idx_q >= 7) && (subcycle_idx_q == 2'd1);
 
         // Compute output SW idx (0..31 for rb_row_idx_q = 7..38) (invariant 2)
-        sad_4x_sw_idx   = SW_IDX_W'(rb_row_idx_q - 7);
-        sad_8x_sw_idx_d = sad_4x_sw_idx;
+        sad_sw_idx_d = SW_IDX_W'(rb_row_idx_q - 7);
 
         // Compute output SADs
-        for (int i = 0; i < WINDOW_SIZE; i++) begin
-            sad_4x8_d[0][i] = sad_4x4[0][i] + sad_4x4[1][i];
-            sad_4x8_d[1][i] = sad_4x4[2][i] + sad_4x4[3][i];
+        if (sad_valid_d) begin
+            for (int i = 0; i < WINDOW_SIZE; i++) begin
+                sad_4x4_d[0][i] = pe_array_sad[0][i];
+                sad_4x4_d[1][i] = pe_array_sad[1][i];
+                sad_4x4_d[2][i] = pe_array_sad[2][i];
+                sad_4x4_d[3][i] = pe_array_sad[3][i];
 
-            sad_8x4_d[0][i] = sad_4x4[0][i] + sad_4x4[2][i];
-            sad_8x4_d[1][i] = sad_4x4[1][i] + sad_4x4[3][i];
+                sad_4x8_d[0][i] = pe_array_sad[0][i] + pe_array_sad[1][i];
+                sad_4x8_d[1][i] = pe_array_sad[2][i] + pe_array_sad[3][i];
 
-            sad_8x8_d[i]    = sad_8x4_d[0][i] + sad_8x4_d[1][i];
+                sad_8x4_d[0][i] = pe_array_sad[0][i] + pe_array_sad[2][i];
+                sad_8x4_d[1][i] = pe_array_sad[1][i] + pe_array_sad[3][i];
+
+                sad_8x8_d[i]    = sad_8x4_d[0][i] + sad_8x4_d[1][i];
+            end
+        end else begin
+            sad_4x4_d = sad_4x4_q;
+            sad_4x8_d = sad_4x8_q;
+            sad_8x4_d = sad_8x4_q;
+            sad_8x8_d = sad_8x8_q;
         end
     end
 
     // Buffer output SADs
     always_ff @(posedge clk) begin
         if (clear) begin
-            sad_8x_valid_q  <= 1'b0;
-            sad_8x_sw_idx_q <= '0;
-            sad_4x8_q       <= '{default: '0};
-            sad_8x4_q       <= '{default: '0};
-            sad_8x8_q       <= '{default: '0};
+            sad_valid_q  <= 1'b0;
+            sad_sw_idx_q <= '0;
+            sad_4x4_q     <= '{default: '0};
+            sad_4x8_q     <= '{default: '0};
+            sad_8x4_q     <= '{default: '0};
+            sad_8x8_q     <= '{default: '0};
         end else begin
-            sad_8x_valid_q  <= sad_8x_valid_d;
-            sad_8x_sw_idx_q <= sad_8x_sw_idx_d;
-            sad_4x8_q       <= sad_4x8_d;
-            sad_8x4_q       <= sad_8x4_d;
-            sad_8x8_q       <= sad_8x8_d;
+            sad_valid_q  <= sad_valid_d;
+            sad_sw_idx_q <= sad_sw_idx_d;
+            sad_4x4_q    <= sad_4x4_d;
+            sad_4x8_q    <= sad_4x8_d;
+            sad_8x4_q    <= sad_8x4_d;
+            sad_8x8_q    <= sad_8x8_d;
         end
     end
 
     // Assign output SADs
-    assign sad_8x_valid  = sad_8x_valid_q;
-    assign sad_8x_sw_idx = sad_8x_sw_idx_q;
-    assign sad_4x8       = sad_4x8_q;
-    assign sad_8x4       = sad_8x4_q;
-    assign sad_8x8       = sad_8x8_q;
+    assign sad_valid  = sad_valid_q;
+    assign sad_sw_idx = sad_sw_idx_q;
+    assign sad_4x4    = sad_4x4_q;
+    assign sad_4x8    = sad_4x8_q;
+    assign sad_8x4    = sad_8x4_q;
+    assign sad_8x8    = sad_8x8_q;
 
 endmodule

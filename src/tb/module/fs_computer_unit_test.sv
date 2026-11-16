@@ -15,10 +15,10 @@ module fs_computer_unit_test;
 
     localparam int NUM_RB_ROWS = WINDOW_SIZE + 7; // 39 rows (39 * 4 = 156 cycles per window)
 
-    typedef logic [3:0][PEL_W-1:0]            pel_row_t;
+    typedef logic [3:0][PEL_W-1:0]             pel_row_t;
     typedef logic [WINDOW_SIZE+6:0][PEL_W-1:0] rb_row_t;
-    typedef pel_row_t                         cb_block_t[4];
-    typedef rb_row_t                          rb_window_t[NUM_RB_ROWS];
+    typedef pel_row_t                          cb_block_t[4];
+    typedef rb_row_t                           rb_window_t[NUM_RB_ROWS];
 
     logic                                   clk;
     logic                                   clear;
@@ -28,10 +28,8 @@ module fs_computer_unit_test;
     logic [RB_ROW_IDX_W-1:0]                rb_row_idx;
     logic [1:0]                             subcycle_idx;
 
-    logic                                   sad_4x_valid;
-    logic                                   sad_8x_valid;
-    logic [SW_IDX_W-1:0]                    sad_4x_sw_idx;
-    logic [SW_IDX_W-1:0]                    sad_8x_sw_idx;
+    logic                                   sad_valid;
+    logic [SW_IDX_W-1:0]                    sad_sw_idx;
     logic [SAD_4X4_W-1:0]                   sad_4x4[4][WINDOW_SIZE];
     logic [SAD_8X4_W-1:0]                   sad_4x8[2][WINDOW_SIZE];
     logic [SAD_8X4_W-1:0]                   sad_8x4[2][WINDOW_SIZE];
@@ -138,43 +136,43 @@ module fs_computer_unit_test;
         while (valid_4x_count < WINDOW_SIZE || valid_8x_count < WINDOW_SIZE) begin
             @(posedge clk);
 
-            if (sad_4x_valid) begin
-                `FAIL_UNLESS_LOG(sad_4x_sw_idx === SW_IDX_W'(valid_4x_count), $sformatf(
-                    "4x: Expected sad_4x_sw_idx=%0d, got %0d", valid_4x_count, sad_4x_sw_idx
+            if (sad_valid) begin
+                `FAIL_UNLESS_LOG(sad_sw_idx === SW_IDX_W'(valid_4x_count), $sformatf(
+                    "4x: Expected sad_sw_idx=%0d, got %0d", valid_4x_count, sad_sw_idx
                 ));
 
                 for (int i = 0; i < WINDOW_SIZE; i++) begin
-                    calc_expected_sads(rb_win, cb_blk, int'(sad_4x_sw_idx), i, exp_4x4, exp_4x8, exp_8x4, exp_8x8);
+                    calc_expected_sads(rb_win, cb_blk, int'(sad_sw_idx), i, exp_4x4, exp_4x8, exp_8x4, exp_8x8);
                     for (int q = 0; q < 4; q++) begin
                         `FAIL_UNLESS_LOG(sad_4x4[q][i] === SAD_4X4_W'(exp_4x4[q]), $sformatf(
-                            "sad_4x_sw_idx=%0d col=%0d q=%0d act_4x4=0x%0h exp_4x4=0x%0h",
-                            sad_4x_sw_idx, i, q, sad_4x4[q][i], SAD_4X4_W'(exp_4x4[q])
+                            "sad_sw_idx=%0d col=%0d q=%0d act_4x4=0x%0h exp_4x4=0x%0h",
+                            sad_sw_idx, i, q, sad_4x4[q][i], SAD_4X4_W'(exp_4x4[q])
                         ));
                     end
                 end
                 valid_4x_count++;
             end
 
-            if (sad_8x_valid) begin
-                `FAIL_UNLESS_LOG(sad_8x_sw_idx === SW_IDX_W'(valid_8x_count), $sformatf(
-                    "8x: Expected sad_8x_sw_idx=%0d, got %0d", valid_8x_count, sad_8x_sw_idx
+            if (sad_valid) begin
+                `FAIL_UNLESS_LOG(sad_sw_idx === SW_IDX_W'(valid_8x_count), $sformatf(
+                    "8x: Expected sad_sw_idx=%0d, got %0d", valid_8x_count, sad_sw_idx
                 ));
 
                 for (int i = 0; i < WINDOW_SIZE; i++) begin
-                    calc_expected_sads(rb_win, cb_blk, int'(sad_8x_sw_idx), i, exp_4x4, exp_4x8, exp_8x4, exp_8x8);
+                    calc_expected_sads(rb_win, cb_blk, int'(sad_sw_idx), i, exp_4x4, exp_4x8, exp_8x4, exp_8x8);
                     for (int p = 0; p < 2; p++) begin
                         `FAIL_UNLESS_LOG(sad_4x8[p][i] === SAD_8X4_W'(exp_4x8[p]), $sformatf(
-                            "sad_8x_sw_idx=%0d col=%0d p=%0d act_4x8=0x%0h exp_4x8=0x%0h",
-                            sad_8x_sw_idx, i, p, sad_4x8[p][i], SAD_8X4_W'(exp_4x8[p])
+                            "sad_sw_idx=%0d col=%0d p=%0d act_4x8=0x%0h exp_4x8=0x%0h",
+                            sad_sw_idx, i, p, sad_4x8[p][i], SAD_8X4_W'(exp_4x8[p])
                         ));
                         `FAIL_UNLESS_LOG(sad_8x4[p][i] === SAD_8X4_W'(exp_8x4[p]), $sformatf(
-                            "sad_8x_sw_idx=%0d col=%0d p=%0d act_8x4=0x%0h exp_8x4=0x%0h",
-                            sad_8x_sw_idx, i, p, sad_8x4[p][i], SAD_8X4_W'(exp_8x4[p])
+                            "sad_sw_idx=%0d col=%0d p=%0d act_8x4=0x%0h exp_8x4=0x%0h",
+                            sad_sw_idx, i, p, sad_8x4[p][i], SAD_8X4_W'(exp_8x4[p])
                         ));
                     end
                     `FAIL_UNLESS_LOG(sad_8x8[i] === SAD_8X8_W'(exp_8x8), $sformatf(
-                        "sad_8x_sw_idx=%0d col=%0d act_8x8=0x%0h exp_8x8=0x%0h",
-                        sad_8x_sw_idx, i, sad_8x8[i], SAD_8X8_W'(exp_8x8)
+                        "sad_sw_idx=%0d col=%0d act_8x8=0x%0h exp_8x8=0x%0h",
+                        sad_sw_idx, i, sad_8x8[i], SAD_8X8_W'(exp_8x8)
                     ));
                 end
                 valid_8x_count++;
