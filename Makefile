@@ -38,10 +38,10 @@ RTL_SOURCES := \
     $(realpath src/hdl/sram_wrapper.sv) \
     $(realpath src/hdl/sram_macro_bb.sv) \
     $(realpath src/hdl/fs/fs_pe.sv) \
-    $(realpath src/hdl/fs/fs_pe_array.sv) \
     $(realpath src/hdl/fs/fs_computer.sv) \
 	$(realpath src/hdl/fs/fs_combiner.sv) \
 	$(realpath src/hdl/fs/fs_comparator.sv) \
+	$(realpath src/hdl/fs/fs_quarter_comparator.sv) \
 	$(realpath src/hdl/fs/fs_control.sv) \
 	$(realpath src/hdl/me_top.sv)
 
@@ -59,8 +59,6 @@ SVUNIT_FLAGS := -s vcs -f $(SVUNIT_DUT_F) \
                 -d SVUNIT_TIMEOUT=10s \
                 -c -full64 -c -Mupdate -c +v2k -c -sverilog -c -timescale=1ns/1ns -c -kdb \
                 -c "-l compile.log" \
-				-c -debug_acc+all+dmptf -c -debug_region+cell+encrypt \
-                -c "+vcs+dumpvars+entire_run.vcd" \
 				-c -debug_acc+all+dmptf -c -debug_region+cell+encrypt \
                 -c -memcbk
 
