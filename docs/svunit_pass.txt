@@ -1,0 +1,61 @@
+INFO:  [0][______src_tb_module_ts]: Registering Unit Test Case fs_combiner_ut
+INFO:  [0][______src_tb_module_ts]: Registering Unit Test Case fs_comparator_ut
+INFO:  [0][______src_tb_module_ts]: Registering Unit Test Case fs_computer_ut
+INFO:  [0][______src_tb_module_ts]: Registering Unit Test Case fs_control_ut
+INFO:  [0][______src_tb_module_ts]: Registering Unit Test Case fs_pe_ut
+INFO:  [0][______src_tb_module_ts]: Registering Unit Test Case fs_quarter_comparator_ut
+INFO:  [0][testrunner]: Registering Test Suite ______src_tb_module_ts
+INFO:  [0][______src_tb_module_ts]: RUNNING
+INFO:  [0][fs_combiner_ut]: RUNNING
+INFO:  [0][fs_combiner_ut]: typical::RUNNING
+INFO:  [31295][fs_combiner_ut]: typical::PASSED
+INFO:  [31295][fs_combiner_ut]: typical_stall::RUNNING
+INFO:  [70395][fs_combiner_ut]: typical_stall::PASSED
+INFO:  [70395][fs_comparator_ut]: RUNNING
+INFO:  [70395][fs_comparator_ut]: typical::RUNNING
+INFO:  [71135][fs_comparator_ut]: typical::PASSED
+INFO:  [71135][fs_comparator_ut]: typical_stall::RUNNING
+INFO:  [72555][fs_comparator_ut]: typical_stall::PASSED
+INFO:  [72555][fs_computer_ut]: RUNNING
+INFO:  [72555][fs_computer_ut]: max_sad::RUNNING
+INFO:  [74135][fs_computer_ut]: max_sad::PASSED
+INFO:  [74135][fs_computer_ut]: min_sad::RUNNING
+INFO:  [75715][fs_computer_ut]: min_sad::PASSED
+INFO:  [75715][fs_computer_ut]: typical::RUNNING
+INFO:  [78855][fs_computer_ut]: typical::PASSED
+INFO:  [78855][fs_computer_ut]: typical_stall::RUNNING
+INFO:  [85115][fs_computer_ut]: typical_stall::PASSED
+INFO:  [85115][fs_control_ut]: RUNNING
+INFO:  [85115][fs_control_ut]: typical_stall::RUNNING
+[TEST] === Starting Iteration 0 (29 blocks) ===
+[TEST] === Starting Iteration 1 (29 blocks) ===
+INFO:  [2275655][fs_control_ut]: typical_stall::PASSED
+INFO:  [2275655][fs_control_ut]: typical::RUNNING
+[TEST] === Starting Iteration 0 (26 blocks) ===
+[TEST] === Starting Iteration 1 (21 blocks) ===
+INFO:  [2572475][fs_control_ut]: typical::PASSED
+INFO:  [2572475][fs_pe_ut]: RUNNING
+INFO:  [2572475][fs_pe_ut]: typical::RUNNING
+INFO:  [2575075][fs_pe_ut]: typical::PASSED
+INFO:  [2575075][fs_pe_ut]: typical_stall::RUNNING
+INFO:  [2580255][fs_pe_ut]: typical_stall::PASSED
+INFO:  [2580255][fs_quarter_comparator_ut]: RUNNING
+INFO:  [2580255][fs_quarter_comparator_ut]: min_at_corners_and_subcycles::RUNNING
+INFO:  [2630515][fs_quarter_comparator_ut]: min_at_corners_and_subcycles::PASSED
+INFO:  [2630515][fs_quarter_comparator_ut]: tie_breaking::RUNNING
+INFO:  [2632105][fs_quarter_comparator_ut]: tie_breaking::PASSED
+INFO:  [2632105][fs_quarter_comparator_ut]: typical_back_to_back::RUNNING
+INFO:  [2638375][fs_quarter_comparator_ut]: typical_back_to_back::PASSED
+INFO:  [2638375][fs_quarter_comparator_ut]: typical_stall::RUNNING
+INFO:  [2650885][fs_quarter_comparator_ut]: typical_stall::PASSED
+INFO:  [2650885][fs_combiner_ut]: PASSED (2 of 2 tests passing)
+INFO:  [2650885][fs_comparator_ut]: PASSED (2 of 2 tests passing)
+INFO:  [2650885][fs_computer_ut]: PASSED (4 of 4 tests passing)
+INFO:  [2650885][fs_control_ut]: PASSED (2 of 2 tests passing)
+INFO:  [2650885][fs_pe_ut]: PASSED (2 of 2 tests passing)
+INFO:  [2650885][fs_quarter_comparator_ut]: PASSED (4 of 4 tests passing)
+
+INFO:  [2650885][______src_tb_module_ts]: PASSED (6 of 6 testcases passing)
+
+INFO:  [2650885][testrunner]: PASSED (1 of 1 suites passing) [SVUnit Unreleased]
+

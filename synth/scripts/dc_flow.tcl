@@ -94,7 +94,7 @@ set_operating_conditions -analysis_type bc_wc -max tt0p8v25c
 set_critical_range 0.1 [current_design]
 set_max_fanout 32 [current_design]
 set_max_transition 0.25 [current_design]
-set_app_var high_fanout_net_threshold 1000
+set_app_var higH_FANOUT_NET_threshold 1000
 set_cost_priority -delay
 
 # Lock SRAM macros
@@ -105,18 +105,17 @@ if {[sizeof_collection $sram_insts] > 0} {
 }
 
 # Disable register merging for the PE array
-set pe_regs [get_cells -hierarchical -filter "full_name =~ *fs_pe_array* && is_sequential == true"]
-if {[sizeof_collection [get_designs -quiet fs_pe_array*]] > 0} {
-  	puts "==> INFORMATION: Disabling register merging on fs_pe_array."
-  	set_register_merging [get_designs fs_pe_array*] false
-}
-
-# Prevent register merging on broadcast pipeline regs
 set pe_fanout_regs [get_cells -hierarchical -filter "full_name =~ *stall_q_reg* || full_name =~ *clear_q_reg*"]
 if {[sizeof_collection $pe_fanout_regs] > 0} {
-  	puts "==> INFORMATION: Disabling register merging on stall_q_reg and clear_q_reg."
+    puts "Found [sizeof_collection $pe_fanout_regs] pipeline registers."
+    foreach_in_collection reg $pe_fanout_regs {
+        puts "  [get_object_name $reg]"
+    }
     set_register_merging $pe_fanout_regs false
     set_attribute $pe_fanout_regs preserve_sequential true
+} else {
+    error "ERROR: No stall_q_reg or clear_q_reg registers found!"
+	suspend
 }
 
 ###################################################################
@@ -206,8 +205,18 @@ if {[sizeof_collection $sram_bypass_pins] > 0} {
         connect_pin -from [get_ports test_tm] -to $bp_pin -port_name test_tm
     }
 } else {
-    puts "==> WARNING: No SRAM DFT_BYPASS pins found in the hierarchy!"
+    puts "==> FATAL: No SRAM DFT_BYPASS pins found in the hierarchy!"
+    exit
 }
+
+# Pause for manual inspection
+puts "========== VERIFY SRAM DFT_BYPASS CONNECTIONS =========="
+foreach_in_collection bp_pin $sram_bypass_pins {
+    puts "[get_object_name $bp_pin] -> \
+        [get_object_name [get_nets -of_objects $bp_pin]]"
+}
+puts "========== FLOW SUSPENDED =========="
+suspend
 
 create_test_protocol -infer_asynch -infer_clock
 
