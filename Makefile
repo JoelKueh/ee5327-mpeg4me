@@ -126,11 +126,11 @@ synth: $(FILELIST)
 
 saif: $(RTL_SOURCES) $(SIM_SOURCES)
 	@mkdir -p $(BUILD_DIR)/saif $(SYNTH_DIR)
-	cd $(BUILD_DIR)/saif && $(VCS) -full64 -Mupdate +v2k -sverilog -timescale=1ns/1ns \
-		-debug_acc+all+dmptf -debug_region+cell+encrypt \
+	cd $(BUILD_DIR)/saif && $(VCS) -full64 -lca -Mupdate +v2k -sverilog -timescale=1ns/1ns \
+		-debug_access+all+dmptf \
 		$(RTL_SOURCES) $(SIM_SOURCES) $(abspath src/tb/top/me_top_saif_tb.sv) \
 		-top me_top_saif_tb -o simv_saif -l saif_compile.log
-	cd $(BUILD_DIR)/saif && ./simv_saif -l saif_run.log
-	mv $(BUILD_DIR)/saif/me_top_rtl.saif $(SYNTH_DIR)/me_top_rtl.saif
+	cd $(BUILD_DIR)/saif && ./simv_saif -lca -l saif_run.log
+	mv $(BUILD_DIR)/saif/me_top_rtl.saif $(SYNTH_DIR)/inputs/constraints/me_top_rtl.saif
 
 .PHONY: all build clean test test-module test-full list-tests filelist synth
