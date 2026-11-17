@@ -92,9 +92,8 @@ module fs_quarter_comparator_unit_test;
         end
     endtask
 
-    // Reference model matching exact hardware tie-breaking:
-    //  - Within a single subcycle (8 lanes): strict '<' (lowest lane index wins ties)
-    //  - Across subcycles/rows: '<=' (latest beat overwrites on tie because RTL checks result_sad_d > result_sad_q)
+	// Reference model matching hardware raster-order tie-breaking:
+    // Selects global minimum SAD; ties broken by smallest row, then smallest col.
     function automatic void calc_expected_min(
         input  sad_grid_t        grid,
         output logic [SAD_W-1:0] exp_sad,
@@ -105,24 +104,11 @@ module fs_quarter_comparator_unit_test;
         exp_mv.col = '0;
 
         for (int r = 0; r < WINDOW_SIZE; r++) begin
-            for (int sub = 0; sub < 4; sub++) begin
-                logic [SAD_W-1:0]     slice_min_sad = '1;
-                logic [SW_IDX_W-1:0]  slice_min_col = '0;
-
-                // Intra-subcycle tree reduction: strict '<'
-                for (int i = 0; i < SLICE_SIZE; i++) begin
-                    int c = 4 * i + sub;
-                    if (grid[r][c] < slice_min_sad) begin
-                        slice_min_sad = grid[r][c];
-                        slice_min_col = c[SW_IDX_W-1:0];
-                    end
-                end
-
-                // Inter-subcycle accumulator: '<=' (overwrites on tie)
-                if (slice_min_sad <= exp_sad) begin
-                    exp_sad    = slice_min_sad;
+            for (int c = 0; c < WINDOW_SIZE; c++) begin
+                if (grid[r][c] < exp_sad) begin
+                    exp_sad    = grid[r][c];
                     exp_mv.row = r[SW_IDX_W-1:0];
-                    exp_mv.col = slice_min_col;
+                    exp_mv.col = c[SW_IDX_W-1:0];
                 end
             end
         end
@@ -208,23 +194,38 @@ module fs_quarter_comparator_unit_test;
         end
     `SVTEST_END
 
-    `SVTEST(tie_breaking)
+	`SVTEST(tie_breaking)
         sad_grid_t grid;
 
         for (int r = 0; r < WINDOW_SIZE; r++)
             for (int c = 0; c < WINDOW_SIZE; c++)
                 grid[r][c] = 16'h0500;
 
-        // Within row 10, subcycle 2: col=6 (lane 1) and col=18 (lane 4) tie -> tree keeps lane 1 (col=6).
-        // Across rows/subcycles: row 10 subcycle 2 arrives after row 3 subcycle 1 -> row 10 overwrites row 3.
-        grid[3][1]   = 16'h0010; // Earlier row 3, subcycle 1
-        grid[10][6]  = 16'h0010; // Later row 10, subcycle 2, lane 1 (wins intra-slice tie)
-        grid[10][18] = 16'h0010; // Later row 10, subcycle 2, lane 4 (loses intra-slice tie to lane 1)
+        // Case 1: Cross-subcycle tie on the same row (row 10):
+        // col=4 arrives in subcycle 0 (lane 1), while col=3 arrives later in subcycle 3 (lane 0).
+        // Raster-order tie-breaking must pick (10, 3) over (10, 4).
+        grid[10][4]  = 16'h0010; // Row 10, subcycle 0, lane 1 (arrives earlier, larger col)
+        grid[10][3]  = 16'h0010; // Row 10, subcycle 3, lane 0 (arrives later, smaller col -> wins!)
+        grid[10][18] = 16'h0010; // Row 10, subcycle 2, lane 4
 
         fork
             begin
                 drive_window(0, grid);
                 input_valid <= 1'b0;
+                input_last  <= 1'b0;
+                @(posedge clk);
+            end
+            monitor_result(grid);
+        join
+
+        // Case 2: Cross-row tie: earlier row (3, 7) must beat later row (10, 3)
+        grid[3][7] = 16'h0010;
+
+        fork
+            begin
+                drive_window(0, grid);
+                input_valid <= 1'b0;
+                input_last  <= 1'b0;
                 @(posedge clk);
             end
             monitor_result(grid);
