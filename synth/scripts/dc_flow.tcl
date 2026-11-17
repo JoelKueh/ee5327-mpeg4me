@@ -31,7 +31,7 @@ set_app_var cache_file_chmod_octal 666
 set_app_var cache_dir_chmod_octal 777
 
 # Suppress noisy log messages
-suppress_message {PWR-806 PWR-730 OPT-319}
+suppress_message {PWR-806 PWR-730 OPT-319 UID-401}
 
 ###################################################################
 # Analyze, Elaborate, and Link
@@ -49,14 +49,16 @@ while {[gets $fp line] >= 0} {
 }
 close $fp
 
-# Set naming style for structs in ports.
+# Set naming style for structs in ports
 set_app_var hdlin_field_naming_style "%s_%s"
-set_app_var hdlin_array_naming_style "%s_%d"
+
+# Start the SAIF name-mapping database
+saif_map -start
 
 # Analyze and elaborate the design
 puts "==> INFORMATION: Analyzing files from filelist.f"
 analyze -format sverilog $file_list
-elaborate ${TOP_MODULE} -architecture verilog -library WORK -update
+elaborate ${TOP_MODULE} -architecture verilog -library WORK
 current_design ${TOP_MODULE}
 
 # Link the design
@@ -66,18 +68,13 @@ if {!$link_status} {
   exit
 }
 
-# Add switching information into the design.
-set saif_file "./inputs/constraints/me_top_rtl.saif"
-if {[file exists $saif_file]} {
-    puts "==> INFORMATION: Reading RTL switching activity from $saif_file"
-    read_saif -auto_map_names -input $saif_file -instance_name me_top_saif_tb/dut -verbose
-} else {
-    puts "==> WARNING: SAIF file $saif_file not found!"
-}
-
 ###################################################################
 # Constraints, Macros, Attributes
 ###################################################################
+
+# Create DFT ports
+create_port -direction "in"  {test_si test_se test_tm}
+create_port -direction "out" {test_so}
 
 # Source SDC constraints
 if {[file exists ./inputs/constraints/${TOP_MODULE}.constraints.tcl]} {
@@ -85,6 +82,23 @@ if {[file exists ./inputs/constraints/${TOP_MODULE}.constraints.tcl]} {
 } else {
     puts "==>FATAL: Constraints file missing. Exiting..."
     exit
+}
+
+# Scale SAIF timescale from TB clock (10.0 ns) to SDC clock period and read SAIF
+set saif_file "./inputs/constraints/me_top_rtl.saif"
+if {[file exists $saif_file]} {
+    set sdc_clk_period [get_attribute [get_clocks clk] period]
+    set tb_clk_period  10.0
+    set scaled_saif    "${OUT_DIR}/${DESIGN_NAME}_scaled.saif"
+    set scale_ps       [expr {int(round(1000.0 * $sdc_clk_period / $tb_clk_period))}]
+
+    # Rewrite (TIMESCALE 1 ns) -> (TIMESCALE <scale_ps> ps) so toggle rates match SDC clk
+    exec sed "s/(TIMESCALE 1 ns)/(TIMESCALE ${scale_ps} ps)/g" $saif_file > $scaled_saif
+
+    puts "==> INFORMATION: Reading RTL switching activity (scaled to ${sdc_clk_period} ns clock)"
+    read_saif -auto_map_names -input $scaled_saif -instance_name me_top_saif_tb/dut -verbose
+} else {
+    puts "==> WARNING: SAIF file $saif_file not found!"
 }
 
 # Global app vars and drc targets
@@ -95,8 +109,7 @@ set_app_var auto_wire_load_selection true
 set_wire_load_mode top
 set_operating_conditions -analysis_type bc_wc -max tt0p8v25c
 set_critical_range 0.1 [current_design]
-set_app_var high_fanout_net_threshold 1000
-set_cost_priority -delay
+set_app_var high_fanout_net_pin_capacitance 0.0005
 
 # Lock SRAM macros
 set sram_insts [get_cells -hierarchical -filter "ref_name =~ sram_32x*"]
@@ -109,18 +122,15 @@ if {[sizeof_collection $sram_insts] > 0} {
 # Create DFT Ports and Functional Setup
 ###################################################################
 
-create_port -direction "in"  {test_si test_se test_tm}
-create_port -direction "out" {test_so}
-
 # Setup clock gating style
 set_clock_gating_style -sequential_cell latch \
   -positive_edge_logic {integrated} \
   -control_point before \
-  -control_signal scan_enable
+  -control_signal scan_enable \
+  -max_bitwidth 32
 
 # Lock test pins to 0 for functional optimization
 set_case_analysis 0 [get_ports {test_se test_tm}]
-set_dont_touch_network [get_clocks]
 
 ###################################################################
 # Pre-Compile Optimizations & Path Grouping
@@ -141,7 +151,6 @@ set_leakage_optimization true
 # Setup FSM optimization
 set_app_var fsm_auto_inferring true
 set_app_var fsm_enable_state_minimization true
-set_fsm_minimize true
 
 # Setup path groups
 set non_clk_inputs [remove_from_collection [all_inputs] [get_ports {clk}]]
@@ -167,7 +176,6 @@ write_file -format verilog -hierarchy -output ${OUT_DIR}/${DESIGN_NAME}_pre_dft.
 
 # Release case analysis so DFT sees active test signals
 remove_case_analysis [get_ports {test_se test_tm}]
-set_ideal_network [get_ports {clk test_se test_tm}]
 
 # Configure DFT signals and rules
 set_dft_signal -view existing_dft -type ScanClock   -timing {45 55} -port clk
@@ -177,10 +185,10 @@ set_dft_signal -view spec         -type ScanDataOut -port test_so
 set_dft_signal -view spec         -type ScanEnable  -port test_se
 set_dft_signal -view spec         -type TestMode    -active_state 1 -port test_tm
 
-set_dft_configuration -connect_mux_controls enable -connect_clock_gating enable
-set_scan_configuration -respect_async_ctrls true -replace true
+set_dft_configuration -connect_clock_gating enable
+set_scan_configuration -replace true
 
-# Insert DFT_BYPASS wire so that TMax stops complaining at me
+# Insert DFT_BYPASS wire so that TMAX stops complaining at me
 set sram_bypass_pins [get_pins -hierarchical */DFT_BYPASS]
 if {[sizeof_collection $sram_bypass_pins] > 0} {
     puts "==> INFORMATION: Connecting [sizeof_collection $sram_bypass_pins] SRAM DFT_BYPASS pins to test_tm."
@@ -220,6 +228,12 @@ if (${FLATTEN}) {
 }
 
 ###################################################################
+# DRC Fixing Compile
+###################################################################
+
+compile_ultra -incremental -only_design_rule
+
+###################################################################
 # Clean Names and Write Outputs
 ###################################################################
 
@@ -246,36 +260,8 @@ write_sdc -nosplit ${OUT_DIR}/${DESIGN_NAME}.sdc
 # Comprehensive Reporting
 ###################################################################
 
-# Area Report with custom SRAM Macro vs. Standard Cell breakdown
-report_area -hierarchy -nosplit > ${REPORT_DIR}/${DESIGN_NAME}.area.rpt
-redirect -append -file ${REPORT_DIR}/${DESIGN_NAME}.area.rpt {
-  	set total_area [get_attribute [current_design] area]
-  	set macro_area 0.0
-
-  	# Find all macro/black-box instances in the design
-  	set macro_cells [get_cells -hierarchical -filter "is_macro_cell == true || is_black_box == true"]
-  	if {[sizeof_collection $macro_cells] > 0} {
-  	  	foreach_in_collection cell $macro_cells {
-  	    	set cell_area [get_attribute $cell area]
-  	    	if {$cell_area ne ""} {
-  	      		set macro_area [expr {$macro_area + $cell_area}]
-  	    	}
-  	  	}
-  	}
-  	set stdcell_only_area [expr {$total_area - $macro_area}]
-
-  	puts "\n========================================================"
-  	puts "AREA SUMMARY (WITH vs. WITHOUT SRAM MACROS)"
-  	puts "========================================================"
-  	puts [format "Standard Cell Area Only (No SRAMs) : %12.2f um^2" $stdcell_only_area]
-  	puts [format "Estimated SRAM Macro Area (%d inst) : %12.2f um^2" [sizeof_collection $macro_cells] $macro_area]
-  	puts "--------------------------------------------------------"
-  	puts [format "Total Area (With Estimated SRAMs)  : %12.2f um^2" $total_area]
-  	puts "========================================================\n"
-  	printenv LOGNAME
-}
-
 # Reference, QoR, Power, and Clock Gating Reports
+report_area -hierarchy -nosplit               > ${REPORT_DIR}/${DESIGN_NAME}.area.rpt
 report_reference -hierarchy -nosplit          > ${REPORT_DIR}/${DESIGN_NAME}.ref.rpt
 report_qor -significant_digits 4              > ${REPORT_DIR}/${DESIGN_NAME}.qor.rpt
 report_power -hierarchy -verbose -nosplit     > ${REPORT_DIR}/${DESIGN_NAME}.power.rpt

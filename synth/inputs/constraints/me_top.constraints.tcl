@@ -7,6 +7,7 @@ if {[info exists ::env(CLK_PERIOD)]} {
 }
 create_clock -name clk -period $clk_period [get_ports clk]
 set_dont_touch_network [get_clocks clk]
+set_ideal_network [get_clocks clk]
 set_clock_uncertainty -setup 0.20 [get_clocks clk]
 
 ###############################################
@@ -22,4 +23,4 @@ set_output_delay 0.06 -clock [get_clocks clk] [all_outputs]
 
 ###############################################
 # Area Target
-set_max_area 70000
+set_max_area 41000

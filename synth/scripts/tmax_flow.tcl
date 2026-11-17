@@ -11,7 +11,7 @@ set LOG_DIR ./logs/${DESIGN_NAME}
 # Setup
 read_netlist ./lib/N16ADFP_StdCell.v -library
 read_netlist ./lib/sram_atpg_model.v -library
-read_netlist ./outputs/h264_demux/h264_demux.vg
+read_netlist ./outputs/h264_ring/h264_ring.vg
 run_build_model me_top
 
 add_nofaults -module sram_128x96
@@ -21,9 +21,9 @@ add_nofaults -module sram_128x120
 
 ###################################################################
 # Run
-read_test_protocol ./outputs/h264_demux/h264_demux.spf
+read_test_protocol ./outputs/h264_ring/h264_ring.spf
 set_faults -fault_coverage
-set_atpg -abort_limit 200 -merge high
+set_atpg -abort_limit 300 -merge high
 run_atpg -auto
 
 ###################################################################
