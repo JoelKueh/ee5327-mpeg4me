@@ -134,5 +134,32 @@
       stroke: 1.1pt + umn-dark-gray,
       mark: (end: "stealth", fill: umn-dark-gray, size: 0.15),
     )
+
+    // ==========================================
+    // 5. STRIDED OUTPUT SECTION (MULTIPLE CYCLES)
+    // ==========================================
+    let y-base = 0
+    let sz = 0.42
+    let x-start = 1.0
+    let num-elems = 24
+
+    content((2.27, 0.65), anchor: "east", text(size: 11.5pt, fill: umn-dark-gray)[*Contiguous*])
+    // Row 0: Contiguous row (touching side-by-side)
+    for i in range(num-elems) {
+      let x = x-start + i * sz
+      rect((x, y-base), (x + sz, y-base + sz), stroke: 1.1pt + umn-maroon, fill: umn-maroon.lighten(92%))
+    }
+
+    // Strided output rows across multiple cycles (stride of 4 with increasing offsets: 0, 1, 2, 3)
+    content((1.6, -0.25), anchor: "east", text(size: 11.5pt, fill: umn-dark-gray)[*Strided*])
+    for t in range(4) {
+      let ry = y-base - 0.5 - (t + 1) * sz
+      let i = t
+      while i < num-elems {
+        let rx = x-start + i * sz
+        rect((rx, ry), (rx + sz, ry + sz), stroke: 1.1pt + umn-maroon, fill: umn-maroon.lighten(92%))
+        i += 4
+      }
+    }
   })
 ]

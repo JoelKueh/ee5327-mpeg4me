@@ -51,38 +51,38 @@
   gutter: 1.5em,
   [
     - *Motion Compensation:* Match blocks in the current frame to a reference frame 
-      - Motion vectors form a predicted frame
-      - Better motion vectors improve quality
 
-    - *Partitioning:* $16 times 16$ macroblock splits into 7 block sizes ($16 times 16$ down to $4 times 4$)
-      - Large blocks capture uniform motion
-      - Small blocks track complex edges
+    - *Sum of Absolute Differences (SAD):*
+      - Objective function for Motion Estimation
+      - Computed on the luma component
+
+    - *Partitioning:* $16 times 16$ macroblock splits into smaller blocks ($16 times 16$ down to $4 times 4$)
   ],
   include "diagrams/h264.typ"
 )
 
-== Introduction: Motion Estimation
+// == Introduction: Motion Estimation
+// 
+// #components.side-by-side(
+//   columns: (1.0fr, 0.7fr),
+//   gutter: 1.5em,
+//   [
+//     - *Sum of Absolute Differences (SAD):*
+//       - Objective function for Motion Estimation
+//       - Computed on the luma component (brightness)
+// 
+//     - *Fast Search Motion Estimation:*
+//       - Test a limited set of motion vectors
+//       - Sequential, iterative process
+// 
+//     - *Full Search Motion Estimation:*
+//       - Test all candidate motion vectors
+//       - Massively parallel process
+//   ],
+//   include "diagrams/subdivisions.typ"
+// )
 
-#components.side-by-side(
-  columns: (1.0fr, 0.7fr),
-  gutter: 1.5em,
-  [
-    - *Sum of Absolute Differences (SAD):*
-      - Objective function for Motion Estimation
-      - Computed on the luma component (brightness)
-
-    - *Fast Search Motion Estimation:*
-      - Test a limited set of motion vectors
-      - Sequential, iterative process
-
-    - *Full Search Motion Estimation:*
-      - Test all candidate motion vectors
-      - Masively parallel process
-  ],
-  include "diagrams/subdivisions.typ"
-)
-
-== Reference Design: HEVC/H.265 Fast Search
+== Reference Design: HEVC/H.265 Full Search
 
 #components.side-by-side(
   columns: (1.0fr, 1.00fr),
@@ -103,7 +103,7 @@
   include "diagrams/reference.typ"
 )
 
-== Reference Design: Processing Element Array
+== Reference Design: Processing Engine Array
 
 #include "diagrams/pe_array.typ"
 
@@ -120,14 +120,13 @@
     - *Reduced Maximum Block Size:*
       - H.265 supports block size up to $64 times 64$
       - H.264 supports up to $16 times 16$
-      - My design removes two of the three summation stages
   ],
   include "diagrams/updates1.typ",
 )
 
-== Updated Design: Reworked Computation Stage
-
-#include "diagrams/updates2.typ"
+// == Updated Design: Reworked Computation Stage
+// 
+// #include "diagrams/updates2.typ"
 
 == Updated Design: Reworked Processing Engine
 
@@ -136,16 +135,15 @@
   gutter: 1.5em,
   [
     - *Row Merging*
-      - Now only one row per array
+      - Reuse massive adder trees
       - Throughput cut by four
 
     - *Datapath Width Reduction*
-      - Stream SADs out of computer over four cycles with stride of four
-      - Summation and Comparator modules get much smaller
+      - Stream output over four cycles
+      - Datapath width cut by four
 
     - *SRAM Width*
-      - Previously fat (around 32x400)
-      - Now more balanced (around 128x100)
+      - Rebalanced from 32x400 to 128x100
       - Improves routability and bit density
   ],
   include "diagrams/pe.typ"
@@ -154,12 +152,11 @@
 == Verification: SVUnit Testbenches
 
 #components.side-by-side(
-  columns: (1.0fr, 1.0fr),
+  columns: (1.0fr, 1.1fr),
   gutter: 1.5em,
   [
 
     - *SVUnit Framework*
-      - All tests are self-checking
       - Mixture of random and directed tests
       - Behavioral model verifies results
 
@@ -174,53 +171,35 @@
   ],
   [
     ```
-    INFO:  [0][fs_combiner_ut]: RUNNING
-    INFO:  [0][fs_combiner_ut]: typical::RUNNING
-    INFO:  [7810][fs_combiner_ut]: typical::PASSED
-    INFO:  [7810][fs_combiner_ut]: typical_stall::RUNNING
-    INFO:  [17020][fs_combiner_ut]: typical_stall::PASSED
-    INFO:  [17020][fs_comparator_ut]: RUNNING
-    INFO:  [17020][fs_comparator_ut]: typical::RUNNING
-    INFO:  [17755][fs_comparator_ut]: typical::PASSED
-    INFO:  [17755][fs_comparator_ut]: typical_stall::RUNNING
-    INFO:  [19175][fs_comparator_ut]: typical_stall::PASSED
-    INFO:  [19175][fs_computer_ut]: RUNNING
-    INFO:  [19175][fs_computer_ut]: test_clear::RUNNING
-    INFO:  [19595][fs_computer_ut]: test_clear::PASSED
-    INFO:  [19595][fs_computer_ut]: min_sad::RUNNING
-    INFO:  [19955][fs_computer_ut]: min_sad::PASSED
-    INFO:  [19955][fs_computer_ut]: max_sad::RUNNING
-    INFO:  [20315][fs_computer_ut]: max_sad::PASSED
-    INFO:  [20315][fs_computer_ut]: typical::RUNNING
-    INFO:  [21135][fs_computer_ut]: typical::PASSED
-    INFO:  [21135][fs_computer_ut]: typical_stall::RUNNING
-    INFO:  [22385][fs_computer_ut]: typical_stall::PASSED
-    INFO:  [22385][fs_computer_ut]: back_to_back_subblocks::RUNNING
-    INFO:  [25305][fs_computer_ut]: back_to_back_subblocks::PASSED
-    INFO:  [25305][fs_control_ut]: RUNNING
-    INFO:  [25305][fs_control_ut]: typical_stall::RUNNING
-    INFO:  [616545][fs_control_ut]: typical_stall::PASSED
-    INFO:  [616545][fs_control_ut]: typical::RUNNING
-    INFO:  [713445][fs_control_ut]: typical::PASSED
+    INFO:  [2650885][fs_combiner_ut]: PASSED (2 of 2 tests passing)
+    INFO:  [2650885][fs_comparator_ut]: PASSED (2 of 2 tests passing)
+    INFO:  [2650885][fs_computer_ut]: PASSED (4 of 4 tests passing)
+    INFO:  [2650885][fs_control_ut]: PASSED (2 of 2 tests passing)
+    INFO:  [2650885][fs_pe_ut]: PASSED (2 of 2 tests passing)
+    INFO:  [2650885][fs_quarter_comparator_ut]: PASSED (4 of 4 tests passing)
+    
+    INFO:  [2650885][______src_tb_module_ts]: PASSED (6 of 6 testcases passing)
+    
+    INFO:  [2650885][testrunner]: PASSED (1 of 1 suites passing) [SVUnit Unreleased]
     ```
   ]
 )
 
-== Verification: Waveforms
-
-#figure(
-  image("images/pe_output.png", width: 90%)
-)
-
-#figure(
-  image("images/control_output_crop.png", width: 90%)
-)
+// == Verification: Waveforms
+// 
+// #figure(
+//   image("images/pe_output.png", width: 90%)
+// )
+// 
+// #figure(
+//   image("images/control_output_crop.png", width: 90%)
+// )
 
 == Evaluation: Performance
 
-- Computes minimum SADs for two $4 times 4$ sub-blocks per pass.
-- Each pass takes 156 cycles to stream the 39 rows from the refrence frame.
-- It takes 624 cycles to process one macroblock.
+- Processes four $4 times 4$ sub-blocks per pass
+- 156 cycles per pass for 32-row search window
+- 624 cycles per macroblock (four passes)
 
 #figure(
   table(
@@ -243,9 +222,6 @@
 
 == Evaluation: Reference Comparison
 
-- Clock frequency is chosen to match the resolution and frame rate.
-- SRAM density is estimated at approximately $0.25 mu"m"^2$ per bit.
-
 // NOTE: NAND2 is 0.207360um^2
 
 #figure(
@@ -253,11 +229,11 @@
     columns: 6,
     [*Metric*], [*Unit*], [*Design A*], [*Design B*], [*Design C*], [*Reference*], 
     [Process], [], [TSMC16], [TSMC16], [TSMC16], [TSMC32],
-    [Gate Count], [k], [], [], [212], [2878],
+    [Gate Count], [k], [], [], [195], [2878],
     [Clock Frequency], [MHz], [272], [272], [607], [282],
-    [Total Logic Area], [$mu"m"^2$], [99473], [53470], [34538], [],
+    [Total Logic Area], [$mu"m"^2$], [99473], [53470], [30774], [],
     [Total SRAM Area], [$mu"m"^2$], [], [], [9496], [],
-    [Total Cell Area], [$mu"m"^2$], [], [], [44034], []
+    [Total Cell Area], [$mu"m"^2$], [], [], [40270], []
   ),
   caption: [Comparison between my designs and the reference (3840x2160\@30fps).]
 )
@@ -265,8 +241,7 @@
 == Status
 
 - Logic design and verification is complete
-- DFT insertion has been performed yielding 99.99% test coverage
-- Power optimization and clock gating has been completed yielding 72.6763 mW dynamic power
-  and 83.5706 uW leakage.
-- The design still has to be put through place and route
+- The synthesized netlist has no constraints violations
+- DFT insertion has been performed yielding 99.98% test coverage
+- The design still has to be put through physical design
 
