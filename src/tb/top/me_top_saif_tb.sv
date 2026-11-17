@@ -168,12 +168,6 @@ module me_top_saif_tb;
         void'(std::randomize(rf));
         void'(std::randomize(cf));
 
-        @(posedge clk);
-        clear <= 1'b1;
-        stall <= 1'b0;
-        repeat (4) @(posedge clk);
-        clear <= 1'b0;
-
         for (int b_idx = 0; b_idx < num_blocks_to_test; b_idx++) begin
             drive_block(rf, cf, b_idx);
         end
@@ -182,6 +176,9 @@ module me_top_saif_tb;
     endtask
 
     initial begin
+        // Enable SystemVerilog RTL (logic, structs) and unpacked array (MDA) toggle tracking
+        $set_gate_level_monitoring("rtl_on", "sv", "mda");
+
         clear <= 1'b1;
         stall <= 1'b0;
         rb    <= '0;
