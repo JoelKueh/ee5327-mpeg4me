@@ -11,6 +11,7 @@ package me_pkg;
 
     parameter int BLOCK_SIZE = 16;
     parameter int WINDOW_SIZE = 2 * BLOCK_SIZE;
+    parameter int SLICE_SIZE = WINDOW_SIZE / 4;
     parameter int SW_IDX_W = $clog2(WINDOW_SIZE);
     parameter int RB_ROW_IDX_W = $clog2(WINDOW_SIZE+7);
     

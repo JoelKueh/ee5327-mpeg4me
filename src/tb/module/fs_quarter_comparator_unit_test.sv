@@ -13,23 +13,22 @@ module fs_quarter_comparator_unit_test;
     // test wiring
     // ------------------------------------------------------------------
 
-    localparam int SAD_W      = SAD_16X16_W;
-    localparam int SLICE_SIZE = WINDOW_SIZE / 4; // 8 elements per subcycle
+    localparam int SAD_W = SAD_16X16_W;
 
     typedef logic [SAD_W-1:0] sad_grid_t[WINDOW_SIZE][WINDOW_SIZE];
 
-    logic                   clk;
-    logic                   clear;
+    logic                clk;
+    logic                clear;
 
-    logic                   input_valid;
-    logic                   input_last;
-    logic [1:0]             input_subcycle_idx;
-    logic [SW_IDX_W-1:0]    input_sw_idx;
-    logic [SAD_W-1:0]       input_sads[SLICE_SIZE];
+    logic                input_valid;
+    logic                input_last;
+    logic [1:0]          input_subcycle_idx;
+    logic [SW_IDX_W-1:0] input_sw_idx;
+    logic [SAD_W-1:0]    input_sads[SLICE_SIZE];
 
-    logic                   result_valid;
-    logic [SAD_W-1:0]       result_sad;
-    mv_t                    result_mv;
+    logic                result_valid;
+    logic [SAD_W-1:0]    result_sad;
+    mv_t                 result_mv;
 
     fs_quarter_comparator #(
         .SAD_RESULT_W(SAD_W)
@@ -42,28 +41,17 @@ module fs_quarter_comparator_unit_test;
         forever #5 clk = ~clk;
     end
 
-    // Drive a single subcycle slice (8 strided columns: col = 4*i + sub_idx)
+    // Drive a single subcycle slice (strictly 1 clock cycle)
     task automatic drive_subcycle(
-        logic                do_s,
         logic                v,
         logic                last,
         logic [SW_IDX_W-1:0] sw_idx,
         logic [1:0]          sub_idx,
         sad_grid_t           grid
     );
-        if (do_s) begin
-            clear              <= 1'b0;
-            input_valid        <= 1'b0;
-            input_last         <= 'x;
-            input_sw_idx       <= 'x;
-            input_subcycle_idx <= 'x;
-            for (int i = 0; i < SLICE_SIZE; i++) input_sads[i] <= 'x;
-            @(posedge clk);
-        end
-
         clear              <= 1'b0;
         input_valid        <= v;
-        input_last         <= last;
+        input_last         <= v && last;
         input_sw_idx       <= sw_idx;
         input_subcycle_idx <= sub_idx;
         for (int i = 0; i < SLICE_SIZE; i++) begin
@@ -72,23 +60,35 @@ module fs_quarter_comparator_unit_test;
         @(posedge clk);
     endtask
 
-    // Drive a full 39-row search window:
-    //  - 7 fringe rows (7 * 4 = 28 cycles) with input_valid = 0
-    //  - 32 active rows (32 * 4 = 128 cycles) with input_valid = 1
+    // Drive a full 4-subcycle row (with an optional 4-cycle inter-row stall gap)
+    task automatic drive_row(
+        logic                do_s,
+        logic                v,
+        logic [SW_IDX_W-1:0] sw_idx,
+        sad_grid_t           grid
+    );
+        if (do_s) begin
+            for (int sub = 0; sub < 4; sub++) begin
+                drive_subcycle(1'b0, 1'b0, sw_idx, sub[1:0], grid);
+            end
+        end
+
+        for (int sub = 0; sub < 4; sub++) begin
+            logic is_last = (sw_idx == SW_IDX_W'(WINDOW_SIZE - 1)) && (sub == 3);
+            drive_subcycle(v, is_last, sw_idx, sub[1:0], grid);
+        end
+    endtask
+
+    // Drive a full 39-row search window (7 fringe rows + 32 valid rows)
     task automatic drive_window(logic do_s, sad_grid_t grid);
         // 7-row fringe before valid SADs begin
         for (int r = 0; r < 7; r++) begin
-            for (int sub = 0; sub < 4; sub++) begin
-                drive_subcycle(do_s, 1'b0, 'x, 'x, 'x, grid);
-            end
+            drive_row(do_s, 1'b0, '0, grid);
         end
 
         // 32 valid search window rows
         for (int r = 0; r < WINDOW_SIZE; r++) begin
-            for (int sub = 0; sub < 4; sub++) begin
-                logic is_last = (r == WINDOW_SIZE - 1) && (sub == 3);
-                drive_subcycle(do_s, 1'b1, is_last, r[SW_IDX_W-1:0], sub[1:0], grid);
-            end
+            drive_row(do_s, 1'b1, r[SW_IDX_W-1:0], grid);
         end
     endtask
 

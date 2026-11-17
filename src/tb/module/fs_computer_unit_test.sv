@@ -20,20 +20,21 @@ module fs_computer_unit_test;
     typedef pel_row_t                          cb_block_t[4];
     typedef rb_row_t                           rb_window_t[NUM_RB_ROWS];
 
-    logic                                   clk;
-    logic                                   clear;
-    logic                                   stall;
-    logic [3:0][PEL_W-1:0]                  cb[4];
-    logic [WINDOW_SIZE+6:0][PEL_W-1:0]      rb;
-    logic [RB_ROW_IDX_W-1:0]                rb_row_idx;
-    logic [1:0]                             subcycle_idx;
+    logic                                clk;
+    logic                                clear;
+    logic                                stall;
+    logic [3:0][PEL_W-1:0]               cb[4];
+    logic [WINDOW_SIZE+6:0][PEL_W-1:0]   rb;
+    logic [RB_ROW_IDX_W-1:0]             rb_row_idx;
+    logic [1:0]                          subcycle_idx;
 
-    logic                                   sad_valid;
-    logic [SW_IDX_W-1:0]                    sad_sw_idx;
-    logic [SAD_4X4_W-1:0]                   sad_4x4[4][WINDOW_SIZE];
-    logic [SAD_8X4_W-1:0]                   sad_4x8[2][WINDOW_SIZE];
-    logic [SAD_8X4_W-1:0]                   sad_8x4[2][WINDOW_SIZE];
-    logic [SAD_8X8_W-1:0]                   sad_8x8[WINDOW_SIZE];
+    logic                                sad_valid;
+    logic [1:0]                          sad_subcycle_idx;
+    logic [SW_IDX_W-1:0]                 sad_sw_idx;
+    logic [SAD_4X4_W-1:0]                sad_4x4[4][SLICE_SIZE];
+    logic [SAD_8X4_W-1:0]                sad_4x8[2][SLICE_SIZE];
+    logic [SAD_8X4_W-1:0]                sad_8x4[2][SLICE_SIZE];
+    logic [SAD_8X8_W-1:0]                sad_8x8[SLICE_SIZE];
 
     // Instantiate DUT with exact port mapping
     fs_computer dut (.*);
@@ -127,55 +128,78 @@ module fs_computer_unit_test;
         exp_8x8    = exp_8x4[0] + exp_8x4[1];
     endfunction
 
-    // Monitor DUT's 4x and 8x outputs across all 32 search window rows (0..31)
-    task automatic monitor_computer(rb_window_t rb_win, cb_block_t cb_blk[4]);
+    // Verify a single subcycle slice (SLICE_SIZE columns at stride 4)
+    task automatic check_slice(
+        input rb_window_t rb_win,
+        input cb_block_t  cb_blk[4],
+        input int         exp_sw_idx,
+        input int         exp_sub_idx
+    );
         int exp_4x4[4], exp_4x8[2], exp_8x4[2], exp_8x8;
-        int valid_4x_count = 0;
-        int valid_8x_count = 0;
 
-        while (valid_4x_count < WINDOW_SIZE || valid_8x_count < WINDOW_SIZE) begin
+        `FAIL_UNLESS_LOG(sad_sw_idx === SW_IDX_W'(exp_sw_idx), $sformatf(
+            "Expected sad_sw_idx=%0d, got %0d (subcycle=%0d)",
+            exp_sw_idx, sad_sw_idx, exp_sub_idx
+        ));
+
+        `FAIL_UNLESS_LOG(sad_subcycle_idx === 2'(exp_sub_idx), $sformatf(
+            "sad_sw_idx=%0d: Expected sad_subcycle_idx=%0d, got %0d",
+            exp_sw_idx, exp_sub_idx, sad_subcycle_idx
+        ));
+
+        for (int i = 0; i < SLICE_SIZE; i++) begin
+            int col = 4 * i + exp_sub_idx;
+            calc_expected_sads(rb_win, cb_blk, exp_sw_idx, col, exp_4x4, exp_4x8, exp_8x4, exp_8x8);
+
+            for (int q = 0; q < 4; q++) begin
+                `FAIL_UNLESS_LOG(sad_4x4[q][i] === SAD_4X4_W'(exp_4x4[q]), $sformatf(
+                    "sad_sw_idx=%0d sub=%0d slice=%0d (col=%0d) q=%0d act_4x4=0x%0h exp_4x4=0x%0h",
+                    exp_sw_idx, exp_sub_idx, i, col, q, sad_4x4[q][i], SAD_4X4_W'(exp_4x4[q])
+                ));
+            end
+
+            for (int p = 0; p < 2; p++) begin
+                `FAIL_UNLESS_LOG(sad_4x8[p][i] === SAD_8X4_W'(exp_4x8[p]), $sformatf(
+                    "sad_sw_idx=%0d sub=%0d slice=%0d (col=%0d) p=%0d act_4x8=0x%0h exp_4x8=0x%0h",
+                    exp_sw_idx, exp_sub_idx, i, col, p, sad_4x8[p][i], SAD_8X4_W'(exp_4x8[p])
+                ));
+                `FAIL_UNLESS_LOG(sad_8x4[p][i] === SAD_8X4_W'(exp_8x4[p]), $sformatf(
+                    "sad_sw_idx=%0d sub=%0d slice=%0d (col=%0d) p=%0d act_8x4=0x%0h exp_8x4=0x%0h",
+                    exp_sw_idx, exp_sub_idx, i, col, p, sad_8x4[p][i], SAD_8X4_W'(exp_8x4[p])
+                ));
+            end
+
+            `FAIL_UNLESS_LOG(sad_8x8[i] === SAD_8X8_W'(exp_8x8), $sformatf(
+                "sad_sw_idx=%0d sub=%0d slice=%0d (col=%0d) act_8x8=0x%0h exp_8x8=0x%0h",
+                exp_sw_idx, exp_sub_idx, i, col, sad_8x8[i], SAD_8X8_W'(exp_8x8)
+            ));
+        end
+    endtask
+
+    // Monitor DUT's sliced outputs across all 32 search window rows (0..31),
+    // checking all 4 subcycle slices (0..3) per row while sad_valid is high.
+    task automatic monitor_computer(rb_window_t rb_win, cb_block_t cb_blk[4]);
+        int valid_row_count = 0;
+        int exp_sub_idx     = 0;
+
+        while (valid_row_count < WINDOW_SIZE) begin
             @(posedge clk);
 
             if (sad_valid) begin
-                `FAIL_UNLESS_LOG(sad_sw_idx === SW_IDX_W'(valid_4x_count), $sformatf(
-                    "4x: Expected sad_sw_idx=%0d, got %0d", valid_4x_count, sad_sw_idx
-                ));
+                check_slice(rb_win, cb_blk, valid_row_count, exp_sub_idx);
 
-                for (int i = 0; i < WINDOW_SIZE; i++) begin
-                    calc_expected_sads(rb_win, cb_blk, int'(sad_sw_idx), i, exp_4x4, exp_4x8, exp_8x4, exp_8x8);
-                    for (int q = 0; q < 4; q++) begin
-                        `FAIL_UNLESS_LOG(sad_4x4[q][i] === SAD_4X4_W'(exp_4x4[q]), $sformatf(
-                            "sad_sw_idx=%0d col=%0d q=%0d act_4x4=0x%0h exp_4x4=0x%0h",
-                            sad_sw_idx, i, q, sad_4x4[q][i], SAD_4X4_W'(exp_4x4[q])
-                        ));
-                    end
+                if (exp_sub_idx == 3) begin
+                    exp_sub_idx = 0;
+                    valid_row_count++;
+                end else begin
+                    exp_sub_idx++;
                 end
-                valid_4x_count++;
-            end
-
-            if (sad_valid) begin
-                `FAIL_UNLESS_LOG(sad_sw_idx === SW_IDX_W'(valid_8x_count), $sformatf(
-                    "8x: Expected sad_sw_idx=%0d, got %0d", valid_8x_count, sad_sw_idx
+            end else begin
+                // Ensure sad_valid never drops mid-row (when exp_sub_idx != 0)
+                `FAIL_UNLESS_LOG(exp_sub_idx == 0, $sformatf(
+                    "sad_sw_idx=%0d: sad_valid dropped mid-burst at subcycle %0d",
+                    valid_row_count, exp_sub_idx
                 ));
-
-                for (int i = 0; i < WINDOW_SIZE; i++) begin
-                    calc_expected_sads(rb_win, cb_blk, int'(sad_sw_idx), i, exp_4x4, exp_4x8, exp_8x4, exp_8x8);
-                    for (int p = 0; p < 2; p++) begin
-                        `FAIL_UNLESS_LOG(sad_4x8[p][i] === SAD_8X4_W'(exp_4x8[p]), $sformatf(
-                            "sad_sw_idx=%0d col=%0d p=%0d act_4x8=0x%0h exp_4x8=0x%0h",
-                            sad_sw_idx, i, p, sad_4x8[p][i], SAD_8X4_W'(exp_4x8[p])
-                        ));
-                        `FAIL_UNLESS_LOG(sad_8x4[p][i] === SAD_8X4_W'(exp_8x4[p]), $sformatf(
-                            "sad_sw_idx=%0d col=%0d p=%0d act_8x4=0x%0h exp_8x4=0x%0h",
-                            sad_sw_idx, i, p, sad_8x4[p][i], SAD_8X4_W'(exp_8x4[p])
-                        ));
-                    end
-                    `FAIL_UNLESS_LOG(sad_8x8[i] === SAD_8X8_W'(exp_8x8), $sformatf(
-                        "sad_sw_idx=%0d col=%0d act_8x8=0x%0h exp_8x8=0x%0h",
-                        sad_sw_idx, i, sad_8x8[i], SAD_8X8_W'(exp_8x8)
-                    ));
-                end
-                valid_8x_count++;
             end
         end
     endtask

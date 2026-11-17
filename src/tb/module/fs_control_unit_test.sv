@@ -12,7 +12,6 @@ module fs_control_unit_test;
     import fs_tb_common_pkg::*;
 
     localparam int NUM_RB_ROWS = WINDOW_SIZE + 7; // 39 rows
-    localparam int SLICE_SIZE  = WINDOW_SIZE / 4; // 8 elements per subcycle
 
     typedef logic [WINDOW_SIZE+6:0][PEL_W-1:0] rb_row_t;
     typedef logic [3:0][PEL_W-1:0]             pel_row_t;
@@ -72,6 +71,13 @@ module fs_control_unit_test;
         mv_t                    mv_16x16;
     } mb_results_t;
 
+    localparam comb_sad_id_t EXP_16X8_ID[4] = '{
+        SAD_SXL_0,
+        SAD_LXS_0,
+        SAD_LXS_1,
+        SAD_SXL_1
+    };
+
     mb_results_t exp_mb_q[int];
 
     int cnt_4x4[4];
@@ -81,7 +87,7 @@ module fs_control_unit_test;
     int cnt_16x8;
     int cnt_16x16;
 
-always @(posedge clk) begin
+    always @(posedge clk) begin
         int b_idx;
         int sb_idx;
         int p_idx;
@@ -184,9 +190,10 @@ always @(posedge clk) begin
                 if (exp_mb_q.exists(b_idx)) begin
                     `FAIL_UNLESS_LOG(
                         result_min_16x8 === exp_mb_q[b_idx].min_16x8[p_idx] &&
-                        result_mv_16x8  === exp_mb_q[b_idx].mv_16x8[p_idx],
-                        $sformatf("16x8 b_idx=%0d p_idx=%0d (id=%s) | SAD: act=0x%0h exp=0x%0h | MV: act=(%0d,%0d) exp=(%0d,%0d)",
-                            b_idx, p_idx, result_16x8_id.name(),
+                        result_mv_16x8  === exp_mb_q[b_idx].mv_16x8[p_idx] &&
+                        result_16x8_id  === EXP_16X8_ID[p_idx],
+                        $sformatf("16x8 b_idx=%0d p_idx=%0d | ID: act=%s exp=%s | SAD: act=0x%0h exp=0x%0h | MV: act=(%0d,%0d) exp=(%0d,%0d)",
+                            b_idx, p_idx, result_16x8_id.name(), EXP_16X8_ID[p_idx].name(),
                             result_min_16x8, exp_mb_q[b_idx].min_16x8[p_idx],
                             result_mv_16x8.row, result_mv_16x8.col,
                             exp_mb_q[b_idx].mv_16x8[p_idx].row, exp_mb_q[b_idx].mv_16x8[p_idx].col)
@@ -201,10 +208,11 @@ always @(posedge clk) begin
 
                 if (exp_mb_q.exists(b_idx)) begin
                     `FAIL_UNLESS_LOG(
-                        result_min_16x16 === exp_mb_q[b_idx].min_16x16 &&
-                        result_mv_16x16  === exp_mb_q[b_idx].mv_16x16,
-                        $sformatf("16x16 b_idx=%0d (sb_idx=%0d) | SAD: act=0x%0h exp=0x%0h | MV: act=(%0d,%0d) exp=(%0d,%0d)",
-                            b_idx, result_16x16_sb_idx,
+                        result_min_16x16    === exp_mb_q[b_idx].min_16x16 &&
+                        result_mv_16x16     === exp_mb_q[b_idx].mv_16x16 &&
+                        result_16x16_sb_idx === b_idx[1:0],
+                        $sformatf("16x16 b_idx=%0d | sb_idx: act=%0d exp=%0d | SAD: act=0x%0h exp=0x%0h | MV: act=(%0d,%0d) exp=(%0d,%0d)",
+                            b_idx, result_16x16_sb_idx, b_idx[1:0],
                             result_min_16x16, exp_mb_q[b_idx].min_16x16,
                             result_mv_16x16.row, result_mv_16x16.col,
                             exp_mb_q[b_idx].mv_16x16.row, exp_mb_q[b_idx].mv_16x16.col)
