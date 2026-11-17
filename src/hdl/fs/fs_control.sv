@@ -49,7 +49,7 @@ module fs_control import me_pkg::*; (
     logic [1:0]              subcycle_idx_q, subcycle_idx_d;
     logic [1:0]              sb_idx_8x8_q[3], sb_idx_8x8_d[3];
 
-    // Valid & index outputs from fs_computer
+    // Valid & index outputs from fs_computer (sad_valid is asserted for all 4 subcycles)
     logic                    sad_valid;
     logic [1:0]              sad_subcycle_idx;
     logic [SW_IDX_W-1:0]     sad_sw_idx;
@@ -60,7 +60,7 @@ module fs_control import me_pkg::*; (
     logic [SAD_8X4_W-1:0]    sad_8x4[2][SLICE_SIZE];
     logic [SAD_8X8_W-1:0]    sad_8x8[SLICE_SIZE];
 
-    // Slice framing signals for combiner & comparators (valid across all 4 subcycles of a row)
+    // End-of-window framing signals for combiner & comparators
     logic                    comp_row_last;
     logic                    comp_slice_last;
 
@@ -120,6 +120,7 @@ module fs_control import me_pkg::*; (
         .sad_8x8_last       (comp_row_last),
         .sb_idx_8x8         (sb_idx_8x8_q[2]),
         .sw_idx_8x8         (sad_sw_idx),
+        .subcycle_idx_8x8   (sad_subcycle_idx),
         .sad_8x8            (sad_8x8),
 
         .sad_16x8_valid     (sad_16x8_valid),
@@ -149,7 +150,7 @@ module fs_control import me_pkg::*; (
                 .clk                (clk),
                 .clear              (clear_q),
 
-                .input_valid        (comp_slice_valid),
+                .input_valid        (sad_valid),
                 .input_last         (comp_slice_last),
                 .input_subcycle_idx (sad_subcycle_idx),
                 .input_sw_idx       (sad_sw_idx),
@@ -169,7 +170,7 @@ module fs_control import me_pkg::*; (
                 .clk                (clk),
                 .clear              (clear_q),
 
-                .input_valid        (comp_slice_valid),
+                .input_valid        (sad_valid),
                 .input_last         (comp_slice_last),
                 .input_subcycle_idx (sad_subcycle_idx),
                 .input_sw_idx       (sad_sw_idx),
@@ -189,7 +190,7 @@ module fs_control import me_pkg::*; (
                 .clk                (clk),
                 .clear              (clear_q),
 
-                .input_valid        (comp_slice_valid),
+                .input_valid        (sad_valid),
                 .input_last         (comp_slice_last),
                 .input_subcycle_idx (sad_subcycle_idx),
                 .input_sw_idx       (sad_sw_idx),
@@ -207,7 +208,7 @@ module fs_control import me_pkg::*; (
         .clk                (clk),
         .clear              (clear_q),
 
-        .input_valid        (comp_slice_valid),
+        .input_valid        (sad_valid),
         .input_last         (comp_slice_last),
         .input_subcycle_idx (sad_subcycle_idx),
         .input_sw_idx       (sad_sw_idx),
@@ -279,7 +280,7 @@ module fs_control import me_pkg::*; (
             sb_idx_8x8_d[2] = sb_idx_8x8_q[1];
         end
 
-        // Frame all 4 subcycles (0..3) of each valid row for combiner and comparators
+        // End-of-row / end-of-window framing for combiner and comparators
         comp_row_last   = (sad_sw_idx == SW_IDX_W'(WINDOW_SIZE - 1));
         comp_slice_last = sad_valid && comp_row_last && (sad_subcycle_idx == 2'd3);
     end

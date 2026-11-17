@@ -352,9 +352,8 @@ module fs_control_unit_test;
         return mv;
     endfunction
 
-    // Exact model of fs_quarter_comparator reduction on a 32x32 SAD grid:
-    //  - Intra-subcycle (8 strided lanes: dx = 4*lane + sub): strict '<' (lowest lane wins ties)
-    //  - Inter-subcycle (across sub = 0..3 and dy = 0..31): '<=' (latest beat overwrites on tie)
+    // Reference model matching fs_quarter_comparator raster-order tie-breaking:
+    // Selects global minimum SAD across the 32x32 grid; ties broken by smallest dy, then smallest dx.
     function automatic void reduce_quarter_grid(
         input  int  grid[WINDOW_SIZE][WINDOW_SIZE],
         output int  best_sad,
@@ -364,21 +363,10 @@ module fs_control_unit_test;
         best_mv  = to_mv(0, 0);
 
         for (int dy = 0; dy < WINDOW_SIZE; dy++) begin
-            for (int sub = 0; sub < 4; sub++) begin
-                int slice_min_sad = 'h7fff_ffff;
-                int slice_min_dx  = 0;
-
-                for (int lane = 0; lane < SLICE_SIZE; lane++) begin
-                    int dx = 4 * lane + sub;
-                    if (grid[dy][dx] < slice_min_sad) begin
-                        slice_min_sad = grid[dy][dx];
-                        slice_min_dx  = dx;
-                    end
-                end
-
-                if (slice_min_sad <= best_sad) begin
-                    best_sad = slice_min_sad;
-                    best_mv  = to_mv(dy, slice_min_dx);
+            for (int dx = 0; dx < WINDOW_SIZE; dx++) begin
+                if (grid[dy][dx] < best_sad) begin
+                    best_sad = grid[dy][dx];
+                    best_mv  = to_mv(dy, dx);
                 end
             end
         end
@@ -406,8 +394,8 @@ module fs_control_unit_test;
 
                     for (int r = 0; r < 4; r++) begin
                         for (int c = 0; c < 4; c++) begin
-                            int d_ul = int'(sb_cb[sb][r][c])     - int'(sb_rb[sb][dy + r][dx + c]);
-                            int d_ur = int'(sb_cb[sb][r][c + 4]) - int'(sb_rb[sb][dy + r][dx + c + 4]);
+                            int d_ul = int'(sb_cb[sb][r][c])         - int'(sb_rb[sb][dy + r][dx + c]);
+                            int d_ur = int'(sb_cb[sb][r][c + 4])     - int'(sb_rb[sb][dy + r][dx + c + 4]);
                             int d_dl = int'(sb_cb[sb][r + 4][c])     - int'(sb_rb[sb][dy + r + 4][dx + c]);
                             int d_dr = int'(sb_cb[sb][r + 4][c + 4]) - int'(sb_rb[sb][dy + r + 4][dx + c + 4]);
 
@@ -479,7 +467,8 @@ module fs_control_unit_test;
         frame_t rf;
         frame_t cf;
 
-        $display("[TEST] === Starting Iteration %0d (%0d blocks) ===", iter_id, num_blocks_to_test);
+        $display("[TEST] === Starting Iteration %0d (%0d blocks, max_stall=%0d) ===",
+                 iter_id, num_blocks_to_test, max_stall_cycles);
 
         exp_mb_q.delete();
 
@@ -538,16 +527,15 @@ module fs_control_unit_test;
     `SVUNIT_TESTS_BEGIN
 
     `SVTEST(typical_stall)
-        //for (int i = 0; i < 2; i++) begin
-        //    run_random_iteration(i, $urandom_range(16, 32), 10);
-        //end
+        for (int i = 0; i < 2; i++) begin
+            run_random_iteration(i, $urandom_range(16, 32), 10);
+        end
     `SVTEST_END
 
     `SVTEST(typical)
-        //for (int i = 0; i < 2; i++) begin
-        //    run_random_iteration(i, $urandom_range(16, 32), 0);
-        //end
-        run_random_iteration(0, 1, 0);
+        for (int i = 0; i < 2; i++) begin
+            run_random_iteration(i, $urandom_range(16, 32), 0);
+        end
     `SVTEST_END
 
     `SVUNIT_TESTS_END
