@@ -74,12 +74,10 @@
     - *Fast Search Motion Estimation:*
       - Test a limited set of motion vectors
       - Sequential, iterative process
-      - Greater memory bandwidth requirement
 
     - *Full Search Motion Estimation:*
       - Test all candidate motion vectors
       - Masively parallel process
-      - Higher quality for greater computational cost
   ],
   include "diagrams/subdivisions.typ"
 )
